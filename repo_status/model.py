@@ -11,7 +11,6 @@ GITHUB_API_URL = 'https://api.github.com/'
 CLOUDIFY_COSMO = 'cloudify-cosmo'
 USERNAME = 'AviaE'
 PASSWORD = 'A1b2Y8z9'
-NO_THREAD_LIMIT = -1
 os.environ['GITHUB_USER'] = 'AviaE'  # remove this later
 os.environ['GITHUB_PASS'] = 'A1b2Y8z9'  # remove this later
 GITHUB_USER = 'GITHUB_USER'
@@ -86,6 +85,8 @@ class Issue:
 
 
 class QueryConfig(object):
+
+    NO_THREAD_LIMIT = -1
 
     def __init__(self,
                  resources_path=RESOURCES_FOLDER_PATH,

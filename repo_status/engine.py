@@ -15,15 +15,21 @@ class Engine(object):
     _CFY_BRANCHES_HELP_TEXT = \
         'display all the CFY branches whose JIRA issue status' \
         ' is either \'closed\' or \'resolved\''
-    _CACHE_PATH_HELP_TEXT =\
-        'supply a custom path for the cache files. ' \
+    _CACHE_PATH_HELP_TEXT = \
+        'supply a custom path for the cache files\n. ' \
         'if a custom path is not supplied, ' \
         'the files will be stored under your home directory.'
-    _USE_CACHE_MODE = 'use-cache'
-    _UP_TO_DATE_MODE = 'up-to-date'
+    _MAX_THREADS_HELP_TEXT = \
+        'maximal number of threads used for retrieving branch data.\n' \
+        'if not specified, the program will use as many threads as it needs'
+
     _SURPLUS_BRANCHES_COMMAND_NAME = '--surplus-branches'
     _CFY_BRANCHES_COMMAND_NAME = '--cfy-branches'
     _CACHE_PATH_COMMAND_NAME = '--cache-path'
+    _MAX_THREADS_COMMAND_NAME = '--max-threads'
+
+    _USE_CACHE_MODE = 'use-cache'
+    _UP_TO_DATE_MODE = 'up-to-date'
 
     # authenticating is easy. simply use this example:
     # r = requests.get(URL, auth=(username, password))
@@ -84,10 +90,17 @@ class Engine(object):
                                 nargs=1,
                                 help=Engine._CACHE_PATH_HELP_TEXT,
                                 )
+        threads_action = \
+            parser.add_argument('-t', Engine._MAX_THREADS_COMMAND_NAME,
+                                type=int,
+                                default=model.QueryConfig.NO_THREAD_LIMIT,
+                                help=Engine._MAX_THREADS_HELP_TEXT)
         given_args = set(sys.argv)
         branch_actions_option_strings = (set(surplus_action.option_strings) |
                                          set(cfy_action.option_strings)
                                          )
+
+        # make sure the cache path was supplied with a branch query:
         if (given_args & set(cache_action.option_strings)) and \
            (not given_args & branch_actions_option_strings):
             parser.error(' or '.join(cache_action.option_strings) +
@@ -102,14 +115,14 @@ def main():
 
     engine = Engine()
     args, parser = engine.parse_arguments()
-
+    print args.max_threads
     query_config = model.QueryConfig()
     if args.cache_path:
         if not os.path.isdir(args.cache_path):
             print 'The cache directory you specified doesn\'t exist.' \
                   'using your home directory as a default.'
         else:
-            query_config = model.QueryConfig(args.cache_path)
+            query_config = model.QueryConfig(args.cache_path, args.max_threads)
 
     if args.surplus_branches:
         engine.process_command(args.surplus_branches,
