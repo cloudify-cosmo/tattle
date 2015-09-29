@@ -31,10 +31,22 @@ class Engine(object):
     _USE_CACHE_MODE = 'use-cache'
     _UP_TO_DATE_MODE = 'up-to-date'
 
+    RESOURCES_FOLDER_PATH = '~/.cloudify-repo-status/resources'
+
     # authenticating is easy. simply use this example:
     # r = requests.get(URL, auth=(username, password))
     # I'm not implementing this globally right now because I need to find out
     # how to store the password in a secure way (i.e not in code)
+
+    @staticmethod
+    def determine_resources_path(user_path):
+        if user_path:
+            if not os.path.isdir(user_path):
+                print 'The cache directory you specified doesn\'t exist.' \
+                'using your home directory as a default.'
+            else:
+                return user_path
+        return Engine.RESOURCES_FOLDER_PATH
 
     def process_command(self, mode, query):
 
@@ -115,14 +127,8 @@ def main():
 
     engine = Engine()
     args, parser = engine.parse_arguments()
-    print args.max_threads
-    query_config = model.QueryConfig()
-    if args.cache_path:
-        if not os.path.isdir(args.cache_path):
-            print 'The cache directory you specified doesn\'t exist.' \
-                  'using your home directory as a default.'
-        else:
-            query_config = model.QueryConfig(args.cache_path, args.max_threads)
+    resources_path = engine.determine_resources_path(args.cache_path)
+    query_config = model.QueryConfig(resources_path, args.max_threads)
 
     if args.surplus_branches:
         engine.process_command(args.surplus_branches,

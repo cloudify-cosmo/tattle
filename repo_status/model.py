@@ -87,13 +87,15 @@ class Issue:
 class QueryConfig(object):
 
     NO_THREAD_LIMIT = -1
-
+    BRANCHES_FILENAME = 'branches.json'
+    ISSUES_FILENAME = 'issues.json'
     def __init__(self,
-                 resources_path=RESOURCES_FOLDER_PATH,
+                 resources_path,
                  max_threads=NO_THREAD_LIMIT):
-        self.branches_file_path = resources_path + BRANCHES_FILENAME
-        self.issues_file_path = resources_path + ISSUES_FILENAME
+        self.resources_path = resources_path
         self.max_threads = max_threads
+        self.branches_file_path = self.resources_path + BRANCHES_FILENAME
+        self.issues_file_path = self.resources_path + ISSUES_FILENAME
 
 
 class BranchQuery(object):
@@ -113,6 +115,14 @@ class BranchQuery(object):
     @abc.abstractmethod
     def output(self, branches):
         pass
+
+    @staticmethod
+    def determine_number_of_threads(number_of_calls, max_number_of_threads):
+
+        if max_number_of_threads == QueryConfig.NO_THREAD_LIMIT:
+            return number_of_calls
+        else:
+            return max_number_of_threads
 
     def get_json_repos(self, org_name=CLOUDIFY_COSMO):
 
@@ -169,7 +179,9 @@ class BranchQuery(object):
     def get_org_branches(self, org_name=CLOUDIFY_COSMO):
 
         repos = self.get_repos(org_name)
-        pool = ThreadPool(len(repos))
+        num_of_threads = BranchQuery. \
+            determine_number_of_threads(len(repos), self.query_config.max_threads)
+        pool = ThreadPool(num_of_threads)
 
         branches_lists = pool.map(self.get_branches, repos)
         return list(itertools.chain.from_iterable(branches_lists))
@@ -242,9 +254,13 @@ class BranchQuery(object):
         branches = self.load_branches(branches_filename)
 
         issue_keys = filter(None,
-                            [Issue.extract_issue_key(b) for b in branches]
-                            )
-        pool = ThreadPool(len(issue_keys))
+                            [Issue.extract_issue_key(b) for b in branches])
+
+        num_of_threads = BranchQuery.\
+            determine_number_of_threads(len(issue_keys),
+                                  self.query_config.max_threads)
+
+        pool = ThreadPool(num_of_threads)
         issues = pool.map(self.get_issue, issue_keys)
         self.store_issues(issues, issues_filename)
 
