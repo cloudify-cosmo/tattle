@@ -30,23 +30,23 @@ class Engine(object):
     # I'm not implementing this globally right now because I need to find out
     # how to store the password in a secure way (i.e not in code)
 
-    def process_command(self, mode, query_type):
+    def process_command(self, mode, query):
 
         start_time = time.time()
 
         if mode == Engine._UP_TO_DATE_MODE:
-            query_type.update_cache()
+            query.update_cache()
 
-        branches = model.Branch.load_branches(query_type.
-                                              query_config.
-                                              branches_file_path)
-        query_branches = filter(query_type.branch_filter, branches)
-        query_type.output(query_branches)
+        branches = query.load_branches(query.
+                                       query_config.
+                                       branches_file_path)
+        query_branches = filter(query.branch_filter, branches)
+        query.output(query_branches)
 
         end_time = time.time()
         total_time_in_seconds = (end_time - start_time)
 
-        self.print_performance(query_type.DESCRIPTION, total_time_in_seconds)
+        self.print_performance(query.DESCRIPTION, total_time_in_seconds)
 
     def print_performance(self, description, seconds):
 
