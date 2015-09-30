@@ -89,13 +89,16 @@ class QueryConfig(object):
     NO_THREAD_LIMIT = -1
     BRANCHES_FILENAME = 'branches.json'
     ISSUES_FILENAME = 'issues.json'
+
     def __init__(self,
                  resources_path,
                  max_threads=NO_THREAD_LIMIT):
         self.resources_path = resources_path
         self.max_threads = max_threads
-        self.branches_file_path = self.resources_path + BRANCHES_FILENAME
-        self.issues_file_path = self.resources_path + ISSUES_FILENAME
+        self.branches_file_path = os.path.join(self.resources_path,
+                                               BRANCHES_FILENAME)
+        self.issues_file_path = os.path.join(self.resources_path,
+                                             ISSUES_FILENAME)
 
 
 class BranchQuery(object):
@@ -258,7 +261,7 @@ class BranchQuery(object):
 
         num_of_threads = BranchQuery.\
             determine_number_of_threads(len(issue_keys),
-                                  self.query_config.max_threads)
+                                        self.query_config.max_threads)
 
         pool = ThreadPool(num_of_threads)
         issues = pool.map(self.get_issue, issue_keys)
@@ -323,7 +326,7 @@ class BranchQueryCfy(BranchQuery):
     def update_cache(self):
         self.update_branch_cache(self.query_config.branches_file_path)
         self.update_issue_cache(self.query_config.branches_file_path,
-                                 self.query_config.issues_file_path)
+                                self.query_config.issues_file_path)
 
     def branch_filter(self, branch, issue_file=None):
 
