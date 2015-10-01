@@ -115,9 +115,22 @@ class BranchQuery(object):
     def branch_filter(self, branch):
         pass
 
-    @abc.abstractmethod
     def output(self, branches):
-        pass
+
+        cur_repo_name = None
+
+        for b in branches:
+            running_repo_name = b.containing_repo.name
+            if cur_repo_name != running_repo_name:
+                if cur_repo_name is not None:
+                    print ''
+                cur_repo_name = running_repo_name
+                prefix = 'Repository: '
+                print '*' * (len(cur_repo_name) + len(prefix))
+                print prefix + cur_repo_name
+                print '*' * (len(cur_repo_name) + len(prefix))
+
+            print 'Branch: ' + b.name
 
     @staticmethod
     def determine_number_of_threads(number_of_calls, max_number_of_threads):
@@ -183,7 +196,8 @@ class BranchQuery(object):
 
         repos = self.get_repos(org_name)
         num_of_threads = BranchQuery. \
-            determine_number_of_threads(len(repos), self.query_config.max_threads)
+            determine_number_of_threads(len(repos),
+                                        self.query_config.max_threads)
         pool = ThreadPool(num_of_threads)
 
         branches_lists = pool.map(self.get_branches, repos)
@@ -197,7 +211,7 @@ class BranchQuery(object):
             for str_branch in str_branches_dict['branches']:
                 branch_object = Branch(str_branch['name'],
                                        Repo(str_branch['containing_repo']
-                                            ['name']))
+                                                      ['name']))
                 branches.append(branch_object)
         return branches
 
@@ -296,27 +310,10 @@ class BranchQuerySurplus(BranchQuery):
                 not build_branch_cond and
                 not cfy_branch_cond)
 
-    def output(self, branches):
-
-        cur_repo_name = None
-
-        for surplus_branch in branches:
-            running_repo_name = surplus_branch.containing_repo.name
-            if cur_repo_name != running_repo_name:
-                if cur_repo_name is not None:
-                    print ''
-                cur_repo_name = running_repo_name
-                prefix = 'Repository: '
-                print '*' * (len(cur_repo_name) + len(prefix))
-                print prefix + cur_repo_name
-                print '*' * (len(cur_repo_name) + len(prefix))
-
-            print 'Branch: ' + surplus_branch.name
-
 
 class BranchQueryCfy(BranchQuery):
 
-    DESCRIPTION = 'list all branch that include \'CFY\' in their name ' \
+    DESCRIPTION = 'list all branches that include \'CFY\' in their name ' \
                   'and their corresponding JIRA issue status is either ' \
                   '\'Closed\' or \'Resolved\''
 
@@ -335,20 +332,3 @@ class BranchQueryCfy(BranchQuery):
 
         return Issue(issue_key, 'Closed') in issues or \
             Issue(issue_key, 'Resolved') in issues
-
-    def output(self, branches):
-
-        cur_repo_name = None
-
-        for surplus_branch in branches:
-            running_repo_name = surplus_branch.containing_repo.name
-            if cur_repo_name != running_repo_name:
-                if cur_repo_name is not None:
-                    print ''
-                cur_repo_name = running_repo_name
-                prefix = 'Repository: '
-                print '*' * (len(cur_repo_name) + len(prefix))
-                print prefix + cur_repo_name
-                print '*' * (len(cur_repo_name) + len(prefix))
-
-            print 'Branch: ' + surplus_branch.name

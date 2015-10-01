@@ -165,11 +165,11 @@ class Engine(object):
                                 type=str,
                                 help=_CACHE_PATH_HELP_TEXT,
                                 )
-        threads_action = \
-            parser.add_argument('-t', _MAX_THREADS_COMMAND_NAME,
-                                type=int,
-                                default=model.QueryConfig.NO_THREAD_LIMIT,
-                                help=_MAX_THREADS_HELP_TEXT)
+
+        parser.add_argument('-t', _MAX_THREADS_COMMAND_NAME,
+                            type=int,
+                            default=model.QueryConfig.NO_THREAD_LIMIT,
+                            help=_MAX_THREADS_HELP_TEXT)
 
         Engine.enforce_caching_with_query(surplus_action,
                                           cfy_action,
