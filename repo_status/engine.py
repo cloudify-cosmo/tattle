@@ -102,10 +102,9 @@ class Engine(object):
         if mode == _UP_TO_DATE_MODE:
             query.update_cache()
 
-        branches = query.load_branches(query.
-                                       query_config.
-                                       branches_file_path)
+        branches = query.load_branches()
         query_branches = filter(query.branch_filter, branches)
+
         query.output(query_branches)
 
         end_time = time.time()
@@ -118,6 +117,10 @@ class Engine(object):
                                    cfy_action,
                                    cache_action,
                                    parser):
+        """
+        Makes sure that if the user specified the cache-path flag,
+        She also specified a query (surplus of cfy)
+        """
         given_args = set(sys.argv)
 
         branch_queries_strings = set()

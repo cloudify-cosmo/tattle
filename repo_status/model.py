@@ -38,9 +38,6 @@ class Repo:
 
 class Branch:
 
-    # Idan wants to add information about creator name and create time.
-    # But it seems we can only add this information regarding the last commit.
-
     def __init__(self, name, containing_repo=Repo()):
         self.name = name
         self.containing_repo = containing_repo
@@ -107,6 +104,9 @@ class BranchQuery(object):
     def __init__(self, query_config):
         self.query_config = query_config
 
+    # does not include the caching of the branch details.
+    # that is because we need the branch details only for cfy/surplus branches,
+    # and we get them only after we filter them using the branch filter method.
     @abc.abstractmethod
     def update_cache(self):
         pass
@@ -114,6 +114,7 @@ class BranchQuery(object):
     @abc.abstractmethod
     def branch_filter(self, branch):
         pass
+
 
     def output(self, branches):
 
@@ -130,7 +131,7 @@ class BranchQuery(object):
                 print prefix + cur_repo_name
                 print '*' * (len(cur_repo_name) + len(prefix))
 
-            print 'Branch: ' + b.name
+            print 'Branch:   ' + b.name
 
     @staticmethod
     def determine_number_of_threads(number_of_calls, max_number_of_threads):
@@ -203,8 +204,9 @@ class BranchQuery(object):
         branches_lists = pool.map(self.get_branches, repos)
         return list(itertools.chain.from_iterable(branches_lists))
 
-    def load_branches(self, json_filename):
+    def load_branches(self):
 
+        json_filename = self.query_config.branches_file_path
         branches = []
         with open(json_filename, 'r') as branches_file:
             str_branches_dict = json.load(branches_file)
@@ -268,7 +270,7 @@ class BranchQuery(object):
             json.dump(base_dict, issue_file, default=lambda x: x.__dict__)
 
     def update_issue_cache(self, branches_filename, issues_filename):
-        branches = self.load_branches(branches_filename)
+        branches = self.load_branches()
 
         issue_keys = filter(None,
                             [Issue.extract_issue_key(b) for b in branches])
