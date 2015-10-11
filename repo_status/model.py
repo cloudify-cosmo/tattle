@@ -84,18 +84,17 @@ class Issue:
 class QueryConfig(object):
 
     NO_THREAD_LIMIT = -1
-    BRANCHES_FILENAME = 'branches.json'
-    ISSUES_FILENAME = 'issues.json'
 
     def __init__(self,
                  resources_path,
                  max_threads=NO_THREAD_LIMIT):
         self.resources_path = resources_path
+        self.filename = ''
         self.max_threads = max_threads
-        self.branches_file_path = os.path.join(self.resources_path,
-                                               BRANCHES_FILENAME)
-        self.issues_file_path = os.path.join(self.resources_path,
-                                             ISSUES_FILENAME)
+
+        def get_cache_path(self):
+            return os.path.join(self.resources_path, self.filename)
+
 
 
 class BranchQuery(object):
@@ -133,9 +132,8 @@ class BranchQuery(object):
 
             print 'Branch:   ' + b.name
 
-    @staticmethod
-    def determine_number_of_threads(number_of_calls, max_number_of_threads):
-
+    def determine_number_of_threads(self, number_of_calls):
+        max_number_of_threads = self.query_config.max_threads
         if max_number_of_threads == QueryConfig.NO_THREAD_LIMIT:
             return number_of_calls
         else:
@@ -196,9 +194,7 @@ class BranchQuery(object):
     def get_org_branches(self, org_name=CLOUDIFY_COSMO):
 
         repos = self.get_repos(org_name)
-        num_of_threads = BranchQuery. \
-            determine_number_of_threads(len(repos),
-                                        self.query_config.max_threads)
+        num_of_threads = self.determine_number_of_threads(len(repos))
         pool = ThreadPool(num_of_threads)
 
         branches_lists = pool.map(self.get_branches, repos)
@@ -275,9 +271,7 @@ class BranchQuery(object):
         issue_keys = filter(None,
                             [Issue.extract_issue_key(b) for b in branches])
 
-        num_of_threads = BranchQuery.\
-            determine_number_of_threads(len(issue_keys),
-                                        self.query_config.max_threads)
+        num_of_threads = self.determine_number_of_threads(len(issue_keys))
 
         pool = ThreadPool(num_of_threads)
         issues = pool.map(self.get_issue, issue_keys)
@@ -287,9 +281,11 @@ class BranchQuery(object):
 class BranchQuerySurplus(BranchQuery):
 
     DESCRIPTION = 'list all the surplus branches'
+    FILENAME = 'surplus_branches.json'
 
     def __init__(self, query_config):
         super(BranchQuerySurplus, self).__init__(query_config)
+        self.query_config.filename = BranchQuerySurplus.FILENAME
 
     def update_cache(self):
 
@@ -318,10 +314,11 @@ class BranchQueryCfy(BranchQuery):
     DESCRIPTION = 'list all branches that include \'CFY\' in their name ' \
                   'and their corresponding JIRA issue status is either ' \
                   '\'Closed\' or \'Resolved\''
+    FILENAME = 'cfy_branches.json'
 
     def __init__(self, query_config):
         super(BranchQueryCfy, self).__init__(query_config)
-
+        self.query_config.filename = BranchQueryCfy.FILENAME
     def update_cache(self):
         self.update_branch_cache(self.query_config.branches_file_path)
         self.update_issue_cache(self.query_config.branches_file_path,
