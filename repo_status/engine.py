@@ -100,15 +100,23 @@ class Engine(object):
         start_time = time.time()
 
         if mode == _UP_TO_DATE_MODE:
-            query.update_cache()
+            branches = query.get_org_branches()
+            query_branches = query.filter_branches(branches)
+            query.add_commiters_and_dates(query_branches)
+            print 'hello'
 
-        branches = query.load_branches()
-        query_branches = filter(query.branch_filter, branches)
 
-        query.output(query_branches)
 
-        end_time = time.time()
-        total_time_in_seconds = (end_time - start_time)
+        # if mode == _UP_TO_DATE_MODE:
+        #     query.update_cache()
+        #
+        # branches = query.load_branches()
+        # query_branches = filter(query.branch_filter, branches)
+        #
+        # query.output(query_branches)
+        #
+        # end_time = time.time()
+        # total_time_in_seconds = (end_time - start_time)
 
         Engine.print_performance(query.DESCRIPTION, total_time_in_seconds)
 

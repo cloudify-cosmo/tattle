@@ -87,14 +87,16 @@ class QueryConfig(object):
 
     def __init__(self,
                  resources_path,
-                 max_threads=NO_THREAD_LIMIT):
+                 max_threads=NO_THREAD_LIMIT,
+                 org_name=CLOUDIFY_COSMO):
+
         self.resources_path = resources_path
         self.filename = ''
+        self.org_name = org_name
         self.max_threads = max_threads
 
         def get_cache_path(self):
             return os.path.join(self.resources_path, self.filename)
-
 
 
 class BranchQuery(object):
@@ -113,7 +115,6 @@ class BranchQuery(object):
     @abc.abstractmethod
     def branch_filter(self, branch):
         pass
-
 
     def output(self, branches):
 
@@ -265,7 +266,7 @@ class BranchQuery(object):
         with open(json_filepath, 'w') as issue_file:
             json.dump(base_dict, issue_file, default=lambda x: x.__dict__)
 
-    def update_issue_cache(self, branches_filename, issues_filename):
+    def update_issue_cache(self, issues_filename):
         branches = self.load_branches()
 
         issue_keys = filter(None,
@@ -276,6 +277,27 @@ class BranchQuery(object):
         pool = ThreadPool(num_of_threads)
         issues = pool.map(self.get_issue, issue_keys)
         self.store_issues(issues, issues_filename)
+
+    def add_commiter_and_date(self, branch):
+        url = os.path.join(GITHUB_API_URL,
+                           'repos',
+                           self.query_config.org_name,
+                           branch.containing_repo.name,
+                           'branches',
+                           branch.name
+                           )
+        s = requests.get(url, auth=(os.environ[GITHUB_USER],
+                                    os.environ[GITHUB_PASS])).text
+        json_details = json.loads(s)
+        branch.commiter = json_details['commit']['commit']['author']['name']
+
+    def add_commiters_and_dates(self, query_branches):
+
+        number_of_threads = self.determine_number_of_threads(len(query_branches))
+        pool = ThreadPool(number_of_threads)
+        pool.map(self.add_commiter_and_date, query_branches)
+
+
 
 
 class BranchQuerySurplus(BranchQuery):
@@ -291,7 +313,19 @@ class BranchQuerySurplus(BranchQuery):
 
         self.update_branch_cache(self.query_config.branches_file_path)
 
-    def branch_filter(self, branch):
+    def branch_filter(self, branch, issue_file=None):
+
+        issues = set(self.load_issues(self.query_config.issues_file_path))
+        issue_key = Issue.extract_issue_key(branch)
+
+        return Issue(issue_key, 'Closed') in issues or \
+               Issue(issue_key, 'Resolved') in issues
+
+    def filter_branches(self, branches):
+        return filter(BranchQuerySurplus.name_filter, branches)
+
+    @staticmethod
+    def name_filter(branch):
 
         branch_name = branch.name
 
