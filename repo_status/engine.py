@@ -37,7 +37,9 @@ CACHE_DOESNT_EXIST = 'The cache path you specified doesn\'t exist, ' \
                      'or it doesn\'t contain the required cache files.'
 CACHE_PATH_INVALID = 'The cache path you supplied is illegal or restricted.'
 
-RESOURCES_FOLDER_PATH = '~/.cloudify-repo-status/resources'
+RESOURCES_FOLDER_PATH = \
+    os.path.join(os.path.expanduser('~'),
+                 '.cloudify-repo-status/resources/')
 
 
 class Engine(object):
@@ -86,7 +88,7 @@ class Engine(object):
         else:
             Engine.determine_if_cache_path_is_legal(user_resource_path)
 
-        return os.path.abspath(user_resource_path)
+        return os.path.join(os.path.expanduser('~'), user_resource_path)
 
     @staticmethod
     def print_performance(description, seconds):
@@ -103,9 +105,7 @@ class Engine(object):
             branches = query.get_org_branches()
             query_branches = query.filter_branches(branches)
             query.add_commiters_and_dates(query_branches)
-            print 'hello'
-
-
+            query.update_cache(query_branches)
 
         # if mode == _UP_TO_DATE_MODE:
         #     query.update_cache()
@@ -118,7 +118,7 @@ class Engine(object):
         # end_time = time.time()
         # total_time_in_seconds = (end_time - start_time)
 
-        Engine.print_performance(query.DESCRIPTION, total_time_in_seconds)
+ #       Engine.print_performance(query.DESCRIPTION, total_time_in_seconds)
 
     @staticmethod
     def enforce_caching_with_query(surplus_action,

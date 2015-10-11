@@ -17,9 +17,6 @@ GITHUB_USER = 'GITHUB_USER'
 GITHUB_PASS = 'GITHUB_PASS'
 BRANCHES_FILENAME = 'branches.json'
 ISSUES_FILENAME = 'issues.json'
-RESOURCES_FOLDER_PATH = \
-    os.path.join(os.environ['HOME'],
-                 '.cloudify-repo-status/resources/')
 
 
 class Repo:
@@ -95,8 +92,8 @@ class QueryConfig(object):
         self.org_name = org_name
         self.max_threads = max_threads
 
-        def get_cache_path(self):
-            return os.path.join(self.resources_path, self.filename)
+    def get_cache_path(self):
+        return os.path.join(self.resources_path, self.filename)
 
 
 class BranchQuery(object):
@@ -214,19 +211,19 @@ class BranchQuery(object):
                 branches.append(branch_object)
         return branches
 
-    def store_branches(self, branches, json_filepath):
+    def store_branches(self, branches):
+        cache_path = self.query_config.get_cache_path()
         base_dict = dict()
         base_dict['branches'] = branches
-        containing_dir = os.path.dirname(os.path.realpath(json_filepath))
+        containing_dir = os.path.dirname(cache_path)
         if not os.path.isdir(containing_dir):
             os.makedirs(containing_dir)
 
-        with open(json_filepath, 'w') as branches_file:
+        with open(cache_path, 'w') as branches_file:
             json.dump(base_dict, branches_file, default=lambda x: x.__dict__)
 
     def update_branch_cache(self, cache_filename):
-        branches = self.get_org_branches()
-        self.store_branches(branches, cache_filename)
+        self.store_branches(branches)
 
     def load_issues(self, filename):
         issues = []
@@ -309,9 +306,8 @@ class BranchQuerySurplus(BranchQuery):
         super(BranchQuerySurplus, self).__init__(query_config)
         self.query_config.filename = BranchQuerySurplus.FILENAME
 
-    def update_cache(self):
-
-        self.update_branch_cache(self.query_config.branches_file_path)
+    def update_cache(self, query_branches):
+        self.store_branches(query_branches)
 
     def branch_filter(self, branch, issue_file=None):
 
