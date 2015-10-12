@@ -74,7 +74,8 @@ class Engine(object):
         if d[_CACHE_PATH_PARSE_NAME] is None:
             return RESOURCES_FOLDER_PATH
 
-        user_resource_path = d[_CACHE_PATH_PARSE_NAME]
+        user_resource_path = os.path.join(os.path.expanduser('~'),
+                                          d[_CACHE_PATH_PARSE_NAME])
         command_name = _SURPLUS_BRANCHES_PARSE_NAME \
             if _SURPLUS_BRANCHES_PARSE_NAME in d else _CFY_BRANCHES_PARSE_NAME
 
@@ -100,25 +101,22 @@ class Engine(object):
     def process_command(self, mode, query):
 
         start_time = time.time()
-
+        branches = list()
         if mode == _UP_TO_DATE_MODE:
             branches = query.get_org_branches()
             query_branches = query.filter_branches(branches)
             query.add_commiters_and_dates(query_branches)
             query.update_cache(query_branches)
+        # else:
+        #     branches = query.load_branches(query.
+        #                                    query_config.
+        #                                    get_cache_path())
+        # query.output(branches)
 
-        # if mode == _UP_TO_DATE_MODE:
-        #     query.update_cache()
-        #
-        # branches = query.load_branches()
-        # query_branches = filter(query.branch_filter, branches)
-        #
-        # query.output(query_branches)
-        #
-        # end_time = time.time()
-        # total_time_in_seconds = (end_time - start_time)
+        end_time = time.time()
+        total_time_in_seconds = (end_time - start_time)
 
- #       Engine.print_performance(query.DESCRIPTION, total_time_in_seconds)
+        Engine.print_performance(query.DESCRIPTION, total_time_in_seconds)
 
     @staticmethod
     def enforce_caching_with_query(surplus_action,

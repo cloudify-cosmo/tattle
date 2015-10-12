@@ -51,6 +51,8 @@ class Branch:
 class Issue:
 
     JIRA_API_URL = 'https://cloudifysource.atlassian.net/rest/api/2/issue/'
+    STATUS_CLOSED = 'Closed'
+    STATUS_RESOLVED = 'Resolved'
 
     def __init__(self, key, status):
         self.key = key
@@ -102,16 +104,12 @@ class BranchQuery(object):
     def __init__(self, query_config):
         self.query_config = query_config
 
-    # does not include the caching of the branch details.
-    # that is because we need the branch details only for cfy/surplus branches,
-    # and we get them only after we filter them using the branch filter method.
     @abc.abstractmethod
-    def update_cache(self):
+    def filter_branches(self, branches):
         pass
 
-    @abc.abstractmethod
-    def branch_filter(self, branch):
-        pass
+    def update_cache(self, query_branches):
+        self.store_branches(query_branches)
 
     def output(self, branches):
 
@@ -215,33 +213,19 @@ class BranchQuery(object):
         cache_path = self.query_config.get_cache_path()
         base_dict = dict()
         base_dict['branches'] = branches
-        containing_dir = os.path.dirname(cache_path)
-        if not os.path.isdir(containing_dir):
-            os.makedirs(containing_dir)
 
         with open(cache_path, 'w') as branches_file:
             json.dump(base_dict, branches_file, default=lambda x: x.__dict__)
 
-    def update_branch_cache(self, cache_filename):
-        self.store_branches(branches)
-
-    def load_issues(self, filename):
-        issues = []
-        with open(filename, 'r') as issues_file:
-            str_issues_dict = json.load(issues_file)
-            for str_issue in str_issues_dict['issues']:
-                issue = Issue(str_issue['key'],
-                              str_issue['status'])
-                issues.append(issue)
-        return issues
-
     def get_json_issue(self, key):
+        if key is None: return key  # because of CFY-GIVEAWAY
         json_issue = requests.get(Issue.JIRA_API_URL +
                                   key +
                                   '?fields=status')
         return json_issue.text
 
     def parse_json_issue(self, json_issue):
+        if json_issue is None: return json_issue  # because of CFY-GIVEAWAY
         detailed_issue = json.loads(json_issue)
         issue = Issue(detailed_issue['key'],
                       detailed_issue['fields']['status']['name'])
@@ -251,29 +235,6 @@ class BranchQuery(object):
         json_issue = self.get_json_issue(key)
         issue = self.parse_json_issue(json_issue)
         return issue
-
-    def store_issues(self, issues, json_filepath):
-        base_dict = dict()
-        base_dict['issues'] = issues
-
-        containing_dir = os.path.dirname(os.path.realpath(json_filepath))
-        if not os.path.isdir(containing_dir):
-            os.makedirs(containing_dir)
-
-        with open(json_filepath, 'w') as issue_file:
-            json.dump(base_dict, issue_file, default=lambda x: x.__dict__)
-
-    def update_issue_cache(self, issues_filename):
-        branches = self.load_branches()
-
-        issue_keys = filter(None,
-                            [Issue.extract_issue_key(b) for b in branches])
-
-        num_of_threads = self.determine_number_of_threads(len(issue_keys))
-
-        pool = ThreadPool(num_of_threads)
-        issues = pool.map(self.get_issue, issue_keys)
-        self.store_issues(issues, issues_filename)
 
     def add_commiter_and_date(self, branch):
         url = os.path.join(GITHUB_API_URL,
@@ -287,6 +248,8 @@ class BranchQuery(object):
                                     os.environ[GITHUB_PASS])).text
         json_details = json.loads(s)
         branch.commiter = json_details['commit']['commit']['author']['name']
+        # remember to add dates, preferably in a date-Object format
+        # ask Nir how to convert GitHub's time/date representation to a python object.
 
     def add_commiters_and_dates(self, query_branches):
 
@@ -294,7 +257,18 @@ class BranchQuery(object):
         pool = ThreadPool(number_of_threads)
         pool.map(self.add_commiter_and_date, query_branches)
 
+    def update_branch_with_issue(self, branch):
+        key = Issue.extract_issue_key(branch)
+        issue = self.get_issue(key)
+        branch.jira_issue = issue
 
+    def update_branches_with_issues(self, branches):
+
+        keys = map(Issue.extract_issue_key, branches)
+
+        number_of_threads = self.determine_number_of_threads(len(branches))
+        pool = ThreadPool(number_of_threads)
+        pool.map(self.update_branch_with_issue, branches)
 
 
 class BranchQuerySurplus(BranchQuery):
@@ -306,17 +280,6 @@ class BranchQuerySurplus(BranchQuery):
         super(BranchQuerySurplus, self).__init__(query_config)
         self.query_config.filename = BranchQuerySurplus.FILENAME
 
-    def update_cache(self, query_branches):
-        self.store_branches(query_branches)
-
-    def branch_filter(self, branch, issue_file=None):
-
-        issues = set(self.load_issues(self.query_config.issues_file_path))
-        issue_key = Issue.extract_issue_key(branch)
-
-        return Issue(issue_key, 'Closed') in issues or \
-               Issue(issue_key, 'Resolved') in issues
-
     def filter_branches(self, branches):
         return filter(BranchQuerySurplus.name_filter, branches)
 
@@ -325,8 +288,8 @@ class BranchQuerySurplus(BranchQuery):
 
         branch_name = branch.name
 
-        re_master = re.compile('^master$')
-        master_branch_cond = re_master.search(branch_name)
+        re_master_branch = re.compile('^master$')
+        master_branch_cond = re_master_branch.search(branch_name)
 
         re_build_branch = re.compile('-build$')
         build_branch_cond = re_build_branch.search(branch_name)
@@ -349,15 +312,26 @@ class BranchQueryCfy(BranchQuery):
     def __init__(self, query_config):
         super(BranchQueryCfy, self).__init__(query_config)
         self.query_config.filename = BranchQueryCfy.FILENAME
-    def update_cache(self):
-        self.update_branch_cache(self.query_config.branches_file_path)
-        self.update_issue_cache(self.query_config.branches_file_path,
-                                self.query_config.issues_file_path)
 
-    def branch_filter(self, branch, issue_file=None):
+    @staticmethod
+    def name_filter(branch):
 
-        issues = set(self.load_issues(self.query_config.issues_file_path))
-        issue_key = Issue.extract_issue_key(branch)
+        branch_name = branch.name
 
-        return Issue(issue_key, 'Closed') in issues or \
-            Issue(issue_key, 'Resolved') in issues
+        re_cfy_branch = re.compile('CFY')
+        cfy_branch_cond = re_cfy_branch.search(branch_name)
+
+        return cfy_branch_cond
+
+    def issue_filter(self, branch):
+        if branch.jira_issue is None: return True  # because of CFY-GIVEAWAY
+
+        issue_status = branch.jira_issue.status
+
+        return issue_status == Issue.STATUS_CLOSED or \
+               issue_status == Issue.STATUS_RESOLVED
+
+    def filter_branches(self, branches):
+        branches_that_contain_cfy = filter(self.name_filter, branches)
+        self.update_branches_with_issues(branches_that_contain_cfy)
+        return filter(self.issue_filter, branches_that_contain_cfy)
