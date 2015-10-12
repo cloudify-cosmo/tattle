@@ -19,9 +19,9 @@ BRANCHES_FILENAME = 'branches.json'
 ISSUES_FILENAME = 'issues.json'
 
 
-class Repo:
+class Repo(object):
 
-    def __init__(self, name='sample name'):
+    def __init__(self, name):
         self.name = name
 
     def __eq__(self, other):
@@ -32,12 +32,20 @@ class Repo:
     def __lt__(self, other):
         return self.name <= other.name
 
+    def __str__(self):
+        return 'Repository: {}'.format(self.name)
 
-class Branch:
+    def __repr__(self):
+        return 'Repo(name={})'.format(self.name)
 
-    def __init__(self, name, containing_repo=Repo()):
+
+class Branch(object):
+
+    def __init__(self, name, containing_repo):
         self.name = name
         self.containing_repo = containing_repo
+        self.jira_issue = None
+        self.last_committer = None
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -47,8 +55,25 @@ class Branch:
     def __lt__(self, other):
         return self.name <= other.name
 
+    # @property
+    # def jira_status(self):
+    #     return self._jira_status
+    #
+    # @jira_status.setter
+    # def jira_status(self, value):
+    #     self._jira_status = value
 
-class Issue:
+    def __str__(self):
+
+        # print the jira issue status iff there is a corresponding jira issue
+        status = '' if self.jira_issue is None else \
+            'JIRA status: {}\n'.format(self.jira_issue.status)
+
+        return 'Branch name: {}\n{}Last committer: {}\n'.\
+            format(self.name, status, self.last_committer)
+
+
+class Issue(object):
 
     JIRA_API_URL = 'https://cloudifysource.atlassian.net/rest/api/2/issue/'
     STATUS_CLOSED = 'Closed'
@@ -121,12 +146,11 @@ class BranchQuery(object):
                 if cur_repo_name is not None:
                     print ''
                 cur_repo_name = running_repo_name
-                prefix = 'Repository: '
-                print '*' * (len(cur_repo_name) + len(prefix))
-                print prefix + cur_repo_name
-                print '*' * (len(cur_repo_name) + len(prefix))
+                print '*' * (len(str(b.containing_repo)))
+                print str(b.containing_repo)
+                print '*' * (len(str(b.containing_repo)))
 
-            print 'Branch:   ' + b.name
+            print b
 
     def determine_number_of_threads(self, number_of_calls):
         max_number_of_threads = self.query_config.max_threads
@@ -173,14 +197,14 @@ class BranchQuery(object):
                          )
         return r.text
 
-    def parse_json_branches(self, json_branches, repo_object=Repo()):
+    def parse_json_branches(self, json_branches, repo_object):
         detailed_list_of_branches = json.loads(json_branches)
         list_of_branch_objects = [Branch(db['name'], repo_object)
                                   for db in detailed_list_of_branches]
 
         return list_of_branch_objects
 
-    def get_branches(self, repo_object=Repo(), org_name=CLOUDIFY_COSMO):
+    def get_branches(self, repo_object, org_name=CLOUDIFY_COSMO):
 
         json_branches = self.get_json_branches(repo_object.name, org_name)
         branch_list = self.parse_json_branches(json_branches, repo_object)
@@ -218,14 +242,16 @@ class BranchQuery(object):
             json.dump(base_dict, branches_file, default=lambda x: x.__dict__)
 
     def get_json_issue(self, key):
-        if key is None: return key  # because of CFY-GIVEAWAY
+        if key is None:  # because of CFY-GIVEAWAY
+            return key
         json_issue = requests.get(Issue.JIRA_API_URL +
                                   key +
                                   '?fields=status')
         return json_issue.text
 
     def parse_json_issue(self, json_issue):
-        if json_issue is None: return json_issue  # because of CFY-GIVEAWAY
+        if json_issue is None:  # because of CFY-GIVEAWAY
+            return json_issue
         detailed_issue = json.loads(json_issue)
         issue = Issue(detailed_issue['key'],
                       detailed_issue['fields']['status']['name'])
@@ -247,7 +273,7 @@ class BranchQuery(object):
         s = requests.get(url, auth=(os.environ[GITHUB_USER],
                                     os.environ[GITHUB_PASS])).text
         json_details = json.loads(s)
-        branch.commiter = json_details['commit']['commit']['author']['name']
+        branch.last_committer = json_details['commit']['commit']['author']['name']
         # remember to add dates, preferably in a date-Object format
         # ask Nir how to convert GitHub's time/date representation to a python object.
 
@@ -263,8 +289,6 @@ class BranchQuery(object):
         branch.jira_issue = issue
 
     def update_branches_with_issues(self, branches):
-
-        keys = map(Issue.extract_issue_key, branches)
 
         number_of_threads = self.determine_number_of_threads(len(branches))
         pool = ThreadPool(number_of_threads)
@@ -324,7 +348,8 @@ class BranchQueryCfy(BranchQuery):
         return cfy_branch_cond
 
     def issue_filter(self, branch):
-        if branch.jira_issue is None: return True  # because of CFY-GIVEAWAY
+        if branch.jira_issue is None:  # because of CFY-GIVEAWAY
+            return True
 
         issue_status = branch.jira_issue.status
 

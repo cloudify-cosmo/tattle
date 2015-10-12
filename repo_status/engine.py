@@ -101,7 +101,7 @@ class Engine(object):
     def process_command(self, mode, query):
 
         start_time = time.time()
-        branches = list()
+        query_branches = list()
         if mode == _UP_TO_DATE_MODE:
             branches = query.get_org_branches()
             query_branches = query.filter_branches(branches)
@@ -111,7 +111,7 @@ class Engine(object):
         #     branches = query.load_branches(query.
         #                                    query_config.
         #                                    get_cache_path())
-        # query.output(branches)
+        query.output(query_branches)
 
         end_time = time.time()
         total_time_in_seconds = (end_time - start_time)
