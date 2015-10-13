@@ -95,22 +95,21 @@ class Engine(object):
     def print_performance(description, seconds):
 
         print '\n'
-        print 'action:     ' + description
-        print 'total time: ' + str(seconds * 1000) + 'ms\n\n'
+        print 'action: {}'.format(description)
+        print 'total time: {}{}'.format(str(seconds * 1000), 'ms\n\n')
 
     def process_command(self, mode, query):
 
         start_time = time.time()
-        query_branches = list()
+
         if mode == _UP_TO_DATE_MODE:
             branches = query.get_org_branches()
             query_branches = query.filter_branches(branches)
             query.add_commiters_and_dates(query_branches)
             query.update_cache(query_branches)
-        # else:
-        #     branches = query.load_branches(query.
-        #                                    query_config.
-        #                                    get_cache_path())
+        else:
+            query_branches = query.load_branches()
+
         query.output(query_branches)
 
         end_time = time.time()
@@ -119,9 +118,7 @@ class Engine(object):
         Engine.print_performance(query.DESCRIPTION, total_time_in_seconds)
 
     @staticmethod
-    def enforce_caching_with_query(surplus_action,
-                                   cfy_action,
-                                   cache_action,
+    def enforce_caching_with_query(surplus_action, cfy_action, cache_action,
                                    parser):
         """
         Makes sure that if the user specified the cache-path flag,

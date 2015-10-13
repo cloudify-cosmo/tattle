@@ -41,11 +41,16 @@ class Repo(object):
 
 class Branch(object):
 
-    def __init__(self, name, containing_repo):
+    def __init__(self,
+                 name,
+                 containing_repo,
+                 jira_issue=None,
+                 last_committer=None
+                 ):
         self.name = name
         self.containing_repo = containing_repo
-        self.jira_issue = None
-        self.last_committer = None
+        self.jira_issue = jira_issue
+        self.last_committer = last_committer
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -65,7 +70,7 @@ class Branch(object):
 
     def __str__(self):
 
-        # print the jira issue status iff there is a corresponding jira issue
+        # print the JIRA issue status iff the branch has an JIRA issue
         status = '' if self.jira_issue is None else \
             'JIRA status: {}\n'.format(self.jira_issue.status)
 
@@ -220,16 +225,29 @@ class BranchQuery(object):
         branches_lists = pool.map(self.get_branches, repos)
         return list(itertools.chain.from_iterable(branches_lists))
 
+
+    # need to restructure this function for output() in use-cache mode
     def load_branches(self):
 
-        json_filename = self.query_config.branches_file_path
+        json_filepath = self.query_config.get_cache_path()
         branches = []
-        with open(json_filename, 'r') as branches_file:
-            str_branches_dict = json.load(branches_file)
-            for str_branch in str_branches_dict['branches']:
-                branch_object = Branch(str_branch['name'],
-                                       Repo(str_branch['containing_repo']
-                                                      ['name']))
+        with open(json_filepath, 'r') as branches_file:
+            json_branches = json.load(branches_file)
+            for json_branch in json_branches['branches']:
+
+                repo = None if json_branch['containing_repo'] is None \
+                    else Repo(json_branch['containing_repo']
+                                         ['name'])
+                jira_issue = None if json_branch['jira_issue'] is None \
+                    else Issue(json_branch['jira_issue']['key'],
+                               json_branch['jira_issue']['status'])
+
+
+                branch_object = Branch(json_branch['name'],
+                                       repo,
+                                       jira_issue=jira_issue,
+                                       last_committer=json_branch['last_committer']
+                                       )
                 branches.append(branch_object)
         return branches
 
@@ -354,7 +372,7 @@ class BranchQueryCfy(BranchQuery):
         issue_status = branch.jira_issue.status
 
         return issue_status == Issue.STATUS_CLOSED or \
-               issue_status == Issue.STATUS_RESOLVED
+            issue_status == Issue.STATUS_RESOLVED
 
     def filter_branches(self, branches):
         branches_that_contain_cfy = filter(self.name_filter, branches)
