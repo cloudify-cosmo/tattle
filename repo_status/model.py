@@ -29,8 +29,11 @@ class Repo(object):
             return self.__dict__ == other.__dict__
         return False
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __lt__(self, other):
-        return self.name <= other.name
+        return self.name < other.name
 
     def __str__(self):
         return 'Repository: {}'.format(self.name)
@@ -45,7 +48,7 @@ class Branch(object):
                  name,
                  containing_repo,
                  jira_issue=None,
-                 last_committer=None
+                 last_committer=''
                  ):
         self.name = name
         self.containing_repo = containing_repo
@@ -57,8 +60,11 @@ class Branch(object):
             return self.__dict__ == other.__dict__
         return False
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __lt__(self, other):
-        return self.name <= other.name
+        return self.name < other.name
 
     # @property
     # def jira_status(self):
@@ -70,12 +76,10 @@ class Branch(object):
 
     def __str__(self):
 
-        # print the JIRA issue status iff the branch has an JIRA issue
-        status = '' if self.jira_issue is None else \
-            'JIRA status: {}\n'.format(self.jira_issue.status)
+        issue = '' if self.jira_issue is None else str(self.jira_issue)
 
         return 'Branch name: {}\n{}Last committer: {}\n'.\
-            format(self.name, status, self.last_committer)
+            format(self.name, issue, self.last_committer)
 
 
 class Issue(object):
@@ -95,6 +99,13 @@ class Issue(object):
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __str__(self):
+
+        return 'JIRA status: {}\n'.format(self.status)
 
     @staticmethod
     def extract_issue_key(branch):
@@ -225,8 +236,6 @@ class BranchQuery(object):
         branches_lists = pool.map(self.get_branches, repos)
         return list(itertools.chain.from_iterable(branches_lists))
 
-
-    # need to restructure this function for output() in use-cache mode
     def load_branches(self):
 
         json_filepath = self.query_config.get_cache_path()
@@ -241,12 +250,12 @@ class BranchQuery(object):
                 jira_issue = None if json_branch['jira_issue'] is None \
                     else Issue(json_branch['jira_issue']['key'],
                                json_branch['jira_issue']['status'])
-
+                last_committer = json_branch['last_committer']
 
                 branch_object = Branch(json_branch['name'],
                                        repo,
                                        jira_issue=jira_issue,
-                                       last_committer=json_branch['last_committer']
+                                       last_committer=last_committer
                                        )
                 branches.append(branch_object)
         return branches
@@ -291,13 +300,16 @@ class BranchQuery(object):
         s = requests.get(url, auth=(os.environ[GITHUB_USER],
                                     os.environ[GITHUB_PASS])).text
         json_details = json.loads(s)
-        branch.last_committer = json_details['commit']['commit']['author']['name']
-        # remember to add dates, preferably in a date-Object format
-        # ask Nir how to convert GitHub's time/date representation to a python object.
+        branch.last_committer = \
+            json_details['commit']['commit']['author']['name']
+        # Remember to add dates, preferably in a date-Object format
+        # Ask Nir how to convert GitHub's time/date representation
+        # to a python object.
 
     def add_commiters_and_dates(self, query_branches):
 
-        number_of_threads = self.determine_number_of_threads(len(query_branches))
+        number_of_threads = \
+            self.determine_number_of_threads(len(query_branches))
         pool = ThreadPool(number_of_threads)
         pool.map(self.add_commiter_and_date, query_branches)
 

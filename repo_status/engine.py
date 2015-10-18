@@ -1,5 +1,5 @@
 import argparse
-import model
+from repo_status import model
 import os
 import time
 import sys
