@@ -15,8 +15,6 @@ os.environ['GITHUB_USER'] = 'AviaE'  # remove this later
 os.environ['GITHUB_PASS'] = 'A1b2Y8z9'  # remove this later
 GITHUB_USER = 'GITHUB_USER'
 GITHUB_PASS = 'GITHUB_PASS'
-BRANCHES_FILENAME = 'branches.json'
-ISSUES_FILENAME = 'issues.json'
 
 
 class Repo(object):

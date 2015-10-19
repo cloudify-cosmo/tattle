@@ -1,5 +1,8 @@
+import os
+
 from repo_status.model import Branch
 from repo_status.model import Issue
+from repo_status.model import QueryConfig
 from repo_status.model import Repo
 
 from testtools import TestCase
@@ -335,3 +338,23 @@ class TestIssue(TestGitHubObjects):
 
             self.assertNotEqual(Issue.extract_issue_key(self.cfy_no_dash_branch),
                                 'CFY2756')
+
+
+class TestQueries(TestCase):
+
+    def setUp(self):
+
+        self.resources_path_home = os.path.expanduser('~')
+        self.cfy_filename = 'cfy_branches.json'
+        self.cfy_query_config_no_limit = QueryConfig(self.resources_path_home)
+
+
+class TestQueryConfig(TestQueries):
+
+    def test_init_number_of_args(self):
+        self.assertRaises(TypeError, QueryConfig,
+                          self.resources_path_home,
+                          another_arg='another arg'
+                          )
+        self.assertRaises(TypeError, QueryConfig,
+                          )
