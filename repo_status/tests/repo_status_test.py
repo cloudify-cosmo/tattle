@@ -1,11 +1,19 @@
 import os
 
+from StringIO import StringIO
+
+from mock import MagicMock
+from mock import patch
 from repo_status.model import Branch
+from repo_status.model import BranchQuery
+from repo_status.model import BranchQueryCfy
 from repo_status.model import Issue
 from repo_status.model import QueryConfig
 from repo_status.model import Repo
 
 from testtools import TestCase
+
+ANOTHER_ARG = 'another arg'
 
 ### repo names ###
 
@@ -40,6 +48,7 @@ CFY_GIVEAWAY_KEY = None
 CFY_GIVEAWAY = 'CFY-GIVEAWAY'
 
 SURPLUS_REMOVE_TRAVIS_SUDO = 'remove-travis-sudo'
+
 
 class TestGitHubObjects(TestCase):
 
@@ -80,7 +89,6 @@ class TestGitHubObjects(TestCase):
                                          last_committer=KOSTYA
                                          )
 
-        self.cfy_giveaway_issue = None
         self.cfy_giveaway_cloudify_manager \
             = Branch(CFY_GIVEAWAY,
                      self.repo_cloudify_manager,
@@ -172,7 +180,7 @@ class TestBranch(TestGitHubObjects):
         self.assertRaises(TypeError, Branch,
                           CFY_1838_SPLIT_CONTAINERS,
                           self.repo_cloudify_manager,
-                          another_arg='another arg',
+                          another_arg=ANOTHER_ARG,
                           jira_issue=self.cfy_1838_issue,
                           last_committer=MICAEL_SVERDLIK
                           )
@@ -201,13 +209,12 @@ class TestBranch(TestGitHubObjects):
         self.assertNotEqual(self.cfy_1838_branch,
                             self.surplus_branch_remove_travis_sudo)
 
-
     def test_ne_extra_attribute(self):
 
         other_branch = Branch(CFY_1838_SPLIT_CONTAINERS,
-                                   self.repo_cloudify_manager,
-                                   jira_issue=self.cfy_1838_issue,
-                                   last_committer=MICAEL_SVERDLIK)
+                              self.repo_cloudify_manager,
+                              jira_issue=self.cfy_1838_issue,
+                              last_committer=MICAEL_SVERDLIK)
 
         other_branch.extra_attribute = None
         self.assertNotEqual(self.cfy_1838_branch,
@@ -276,7 +283,7 @@ class TestIssue(TestGitHubObjects):
         self.assertRaises(TypeError, Issue,
                           CFY_1838_KEY,
                           Issue.STATUS_RESOLVED,
-                          another_arg='another arg'
+                          another_arg=ANOTHER_ARG
                           )
         self.assertRaises(TypeError, Branch,
                           CFY_1838_KEY
@@ -340,21 +347,132 @@ class TestIssue(TestGitHubObjects):
                                 'CFY2756')
 
 
-class TestQueries(TestCase):
 
-    def setUp(self):
-
-        self.resources_path_home = os.path.expanduser('~')
-        self.cfy_filename = 'cfy_branches.json'
-        self.cfy_query_config_no_limit = QueryConfig(self.resources_path_home)
-
-
-class TestQueryConfig(TestQueries):
+class TestQueryConfig(TestCase):
 
     def test_init_number_of_args(self):
         self.assertRaises(TypeError, QueryConfig,
                           self.resources_path_home,
-                          another_arg='another arg'
+                          another_arg=ANOTHER_ARG
                           )
         self.assertRaises(TypeError, QueryConfig,
                           )
+
+class TestQueries(TestCase):
+
+    def setUp(self):
+        super(TestQueries, self).setUp()
+
+        self.resources_path_home = os.path.expanduser('~')
+        self.query_config_no_limit = QueryConfig(self.resources_path_home)
+
+class TestBranchQuery(TestQueries):
+
+    def test_init_number_of_args(self):
+        self.assertRaises(TypeError, BranchQuery,
+                          self.query_config_no_limit,
+                          another_arg=ANOTHER_ARG
+                          )
+        self.assertRaises(TypeError, BranchQuery,
+                          )
+
+    def test_output(self):
+
+        REPO_OUTPUT_HEADLINE = \
+            '****************************\n' \
+            'Repository: cloudify-manager\n' \
+            '****************************\n'
+
+        self.repo_cloudify_manager = Repo(CLOUDIFY_MANAGER)
+        self.cfy_1838_issue = Issue(CFY_1838_KEY,
+                                    Issue.STATUS_RESOLVED)
+        self.cfy_regular_branch = Branch(CFY_1838_SPLIT_CONTAINERS,
+                                         self.repo_cloudify_manager,
+                                         jira_issue=self.cfy_1838_issue,
+                                         last_committer=MICAEL_SVERDLIK
+                                         )
+
+        self.cfy_giveaway_branch = Branch(CFY_GIVEAWAY,
+                                          self.repo_cloudify_manager,
+                                          last_committer=NIR0S
+                                          )
+
+        self.surplus_branch = Branch(SURPLUS_REMOVE_TRAVIS_SUDO,
+                                     self.repo_cloudify_manager,
+                                     last_committer=DAN_KILMAN
+                                     )
+        output = \
+            '{}{}\n{}\n{}\n'.format(
+                REPO_OUTPUT_HEADLINE,
+                str(self.cfy_regular_branch),
+                str(self.cfy_giveaway_branch),
+                str(self.surplus_branch)
+            )
+
+        branches = [self.cfy_regular_branch,
+                    self.cfy_giveaway_branch,
+                    self.surplus_branch]
+
+        with patch('sys.stdout', new=StringIO()) as fake_out:
+            bqc = BranchQuery(self.query_config_no_limit)
+            bqc.output(branches)
+            self.assertEqual(fake_out.getvalue(), output)
+
+    def test_determine_number_of_threads(self):
+
+        mock_qc = MagicMock(max_threads=10)
+        bq = BranchQuery(mock_qc)
+
+        self.assertEqual(bq.determine_number_of_threads(5), 5)
+        self.assertEqual(bq.determine_number_of_threads(15), 10)
+
+        bq.query_config.max_threads = QueryConfig.NO_THREAD_LIMIT
+
+        self.assertEqual(bq.determine_number_of_threads(5), 5)
+        self.assertEqual(bq.determine_number_of_threads(15), 15)
+        self.assertNotEqual(bq.determine_number_of_threads(10),
+                            QueryConfig.NO_THREAD_LIMIT)
+
+    def test_parse_json_repos(self):
+
+        sample_repo_response = \
+            [
+                {
+                    "id": 3272632,
+                    "name": "getcloudify.org",
+                    "full_name": "cloudify-cosmo/getcloudify.org",
+                },
+                {
+                    "id": 10997993,
+                    "name": "gs-ui-infra",
+                    "full_name": "cloudify-cosmo/gs-ui-infra",
+                },
+                {
+                    "id": 11148610,
+                    "name": "gs-ui-ks",
+                    "full_name": "cloudify-cosmo/gs-ui-ks",
+                },
+                {
+                    "id": 18326574,
+                    "name": "cloudify-manager",
+                    "full_name": "cloudify-cosmo/cloudify-manager",
+                },
+                {
+                    "id": 18326701,
+                    "name": "cloudify-cli",
+                    "full_name": "cloudify-cosmo/cloudify-cli",
+                },
+
+            ]
+
+
+
+
+
+
+
+
+
+
+
+

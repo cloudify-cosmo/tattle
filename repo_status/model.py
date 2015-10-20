@@ -134,24 +134,35 @@ class QueryConfig(object):
         self.max_threads = max_threads
 
     def get_cache_path(self):
+
         return os.path.join(self.resources_path, self.filename)
 
 
-class BranchQuery(object):
-    __metaclass__ = abc.ABCMeta
+class BranchQueryAbstract(object):
 
-    def __init__(self, query_config):
-        self.query_config = query_config
+    __metaclass__ = abc.ABCMeta
 
     @abc.abstractmethod
     def filter_branches(self, branches):
         pass
 
+class BranchQuery(BranchQueryAbstract):
+
+    def filter_branches(self, branches):
+        pass
+
+    def __init__(self, query_config):
+        self.query_config = query_config
+
     def update_cache(self, query_branches):
         self.store_branches(query_branches)
 
     def output(self, branches):
-
+        '''
+        gets a list of Branch objects and prints them
+        this method assumes that the branches are sorted first by repo name,
+        and then by branch name
+        '''
         cur_repo_name = None
 
         for b in branches:
@@ -171,7 +182,7 @@ class BranchQuery(object):
         if max_number_of_threads == QueryConfig.NO_THREAD_LIMIT:
             return number_of_calls
         else:
-            return max_number_of_threads
+            return min(number_of_calls, max_number_of_threads)
 
     def get_json_repos(self, org_name=CLOUDIFY_COSMO):
 
@@ -179,6 +190,15 @@ class BranchQuery(object):
                                     'orgs',
                                     org_name,
                                     'repos')
+        ### Attention !!! ###
+        # Following the instructions on this link:
+        # https://developer.github.com/v3/#pagination
+        # the default of a page is only 30.
+        # so we need to address this issue.
+        # thinking of it, it is actually a chance to make repo_status faster.
+        # we will use multiple requests to get the repos (think of how to use
+        # pool.map with
+
         r = requests.get(full_address,
                          auth=(os.environ[GITHUB_USER],
                                os.environ[GITHUB_PASS])
