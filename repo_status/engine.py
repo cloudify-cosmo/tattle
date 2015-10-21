@@ -43,96 +43,6 @@ RESOURCES_FOLDER_PATH = \
 
 class Engine(object):
 
-    @staticmethod
-    def determine_if_cache_exists(command_name, user_resource_path):
-
-        try:
-            with open(user_resource_path, 'r'), \
-                open(os.path.join(user_resource_path,
-                                  model.BRANCHES_FILENAME), 'r'):
-                if command_name == _CFY_BRANCHES_PARSE_NAME:
-                    with open(os.path.join(user_resource_path,
-                                           model.ISSUES_FILENAME), 'r'):
-                        pass
-        except IOError:
-            sys.exit(CACHE_DOESNT_EXIST)
-
-    @staticmethod
-    def determine_if_cache_path_is_legal(user_resource_path):
-
-        if not os.path.exists(user_resource_path):
-            try:
-                os.makedirs(user_resource_path)
-            except (IOError, OSError):
-                sys.exit(CACHE_PATH_INVALID)
-
-    @staticmethod
-    def determine_resources_path(args):
-
-        d = vars(args)
-        if d[_CACHE_PATH_PARSE_NAME] is None:
-            return RESOURCES_FOLDER_PATH
-
-        user_resource_path = os.path.join(os.path.expanduser('~'),
-                                          d[_CACHE_PATH_PARSE_NAME])
-        command_name = _SURPLUS_BRANCHES_PARSE_NAME \
-            if _SURPLUS_BRANCHES_PARSE_NAME in d else _CFY_BRANCHES_PARSE_NAME
-
-        # if the user wishes to load the data from a predefined existing cache,
-        # then we need to make sure that it exists.
-        if _USE_CACHE_MODE in d.values():
-            Engine.determine_if_cache_exists(command_name, user_resource_path)
-
-        # if the user wishes to use a custom path to save his cache in,
-        # this path need not exist right now, but it must be legal.
-        else:
-            Engine.determine_if_cache_path_is_legal(user_resource_path)
-
-        return os.path.join(os.path.expanduser('~'), user_resource_path)
-
-    def process_command(self, mode, query):
-
-        query.performance.start = time.time()
-
-        if mode == _UP_TO_DATE_MODE:
-            branches = query.get_org_branches()
-            query_branches = query.filter_branches(branches)
-            query.add_committers_and_dates(query_branches)
-            query.update_cache(query_branches)
-
-        else:
-            query_branches = query.load_branches()
-
-        query.output(query_branches)
-
-        query.performance.end = time.time()
-        query.print_performance()
-
-    @staticmethod
-    def enforce_caching_with_query(surplus_action, cfy_action, cache_action,
-                                   parser):
-        """
-        Makes sure that if the user specified the cache-path flag,
-        She also specified a query (surplus of cfy)
-        """
-        given_args = set(sys.argv)
-
-        branch_queries_strings = set()
-        for s in surplus_action.option_strings + cfy_action.option_strings:
-            branch_queries_strings.add(s)
-            branch_queries_strings.add(s + '=' + _USE_CACHE_MODE)
-            branch_queries_strings.add(s + '=' + _UP_TO_DATE_MODE)
-            branch_queries_strings.add(s + ' ' + _USE_CACHE_MODE)
-            branch_queries_strings.add(s + ' ' + _UP_TO_DATE_MODE)
-
-        caching_cond = given_args & set(cache_action.option_strings)
-        query_cond = not given_args & branch_queries_strings
-
-        if caching_cond and query_cond:
-            parser.error(' or '.join(cache_action.option_strings) +
-                         ' must be given with ' +
-                         ' or '.join(branch_queries_strings))
-
     def parse_arguments(self):
 
         parser = argparse.ArgumentParser(
@@ -174,6 +84,103 @@ class Engine(object):
                                           parser)
         args = parser.parse_args()
         return args, parser
+
+    @staticmethod
+    def determine_if_cache_exists(command_name, user_resource_path):
+
+        try:
+            with open(user_resource_path, 'r'):
+                if command_name == _SURPLUS_BRANCHES_PARSE_NAME:
+                    with open(os.path.join(user_resource_path,
+                                           model
+                                           .BranchQuerySurplus
+                                           .FILENAME), 'r'):
+                        pass
+                if command_name == _CFY_BRANCHES_PARSE_NAME:
+                    with open(os.path.join(user_resource_path,
+                                           model
+                                           .BranchQueryCfy
+                                           .FILENAME), 'r'):
+                        pass
+
+        except IOError:
+            sys.exit(CACHE_DOESNT_EXIST)
+
+    @staticmethod
+    def determine_if_cache_path_is_legal(user_resource_path):
+
+        if not os.path.exists(user_resource_path):
+            try:
+                os.makedirs(user_resource_path)
+            except (IOError, OSError):
+                sys.exit(CACHE_PATH_INVALID)
+
+    @staticmethod
+    def determine_resources_path(args):
+
+        d = vars(args)
+        if d[_CACHE_PATH_PARSE_NAME] is None:
+            return RESOURCES_FOLDER_PATH
+
+        user_resource_path = os.path.join(os.path.expanduser('~'),
+                                          d[_CACHE_PATH_PARSE_NAME])
+        command_name = _SURPLUS_BRANCHES_PARSE_NAME \
+            if _SURPLUS_BRANCHES_PARSE_NAME in d else _CFY_BRANCHES_PARSE_NAME
+
+        # if the user wishes to load the data from a predefined existing cache,
+        # then we need to make sure that it exists.
+        if _USE_CACHE_MODE in d.values():
+            Engine.determine_if_cache_exists(command_name, user_resource_path)
+
+        # if the user wishes to use a custom path to save his cache in,
+        # this path need not exist right now, but it must be legal.
+        else:
+            Engine.determine_if_cache_path_is_legal(user_resource_path)
+
+        return os.path.join(os.path.expanduser('~'), user_resource_path)
+
+    @staticmethod
+    def enforce_caching_with_query(surplus_action, cfy_action, cache_action,
+                                   parser):
+        """
+        Makes sure that if the user specified the cache-path flag,
+        She also specified a query (surplus of cfy)
+        """
+        given_args = set(sys.argv)
+
+        branch_queries_strings = set()
+        for s in surplus_action.option_strings + cfy_action.option_strings:
+            branch_queries_strings.add(s)
+            branch_queries_strings.add(s + '=' + _USE_CACHE_MODE)
+            branch_queries_strings.add(s + '=' + _UP_TO_DATE_MODE)
+            branch_queries_strings.add(s + ' ' + _USE_CACHE_MODE)
+            branch_queries_strings.add(s + ' ' + _UP_TO_DATE_MODE)
+
+        caching_cond = given_args & set(cache_action.option_strings)
+        query_cond = not given_args & branch_queries_strings
+
+        if caching_cond and query_cond:
+            parser.error(' or '.join(cache_action.option_strings) +
+                         ' must be given with ' +
+                         ' or '.join(branch_queries_strings))
+
+    def process_command(self, mode, query):
+
+        query.performance.start = time.time()
+
+        if mode == _UP_TO_DATE_MODE:
+            branches = query.get_org_branches()
+            query_branches = query.filter_branches(branches)
+            query.add_committers_and_dates(query_branches)
+            query.update_cache(query_branches)
+
+        else:
+            query_branches = query.load_branches()
+
+        query.output(query_branches)
+
+        query.performance.end = time.time()
+        query.print_performance()
 
 
 def main():

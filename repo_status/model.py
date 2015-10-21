@@ -9,9 +9,7 @@ import time
 from multiprocessing.dummy import Pool as ThreadPool
 
 BRANCHES = 'branches'
-
 REPOS = 'repos'
-
 ORGS = 'orgs'
 
 CONTAINING_REPO = 'containing_repo'
@@ -182,12 +180,19 @@ class BranchQueryAbstract(object):
 
 class BranchQuery(BranchQueryAbstract):
 
+    REPOS_PERFORMANCE_TEMPLATE = 'getting the repos: {0}ms'
+    BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE = 'getting basic branch info: {0}ms'
+    ISSUES_PERFORMANCE_TEMPLATE = 'getting the issues: {0}ms'
+    DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE = 'getting detailed branch info: {0}ms'
+    TOTAL_PERFORMANCE_TEMPLATE = 'total time: {0}ms\n\n'
+
     def filter_branches(self, branches):
         pass
 
     def __init__(self, query_config):
         self.config = query_config
         self.performance = QueryPerformance()
+        self.DESCRIPTION = None
 
     def update_cache(self, query_branches):
         self.store_branches(query_branches)
@@ -216,11 +221,16 @@ class BranchQuery(BranchQueryAbstract):
 
         print '\n'
         print 'action:\n{}\n'.format(self.DESCRIPTION)
-        print 'getting the repos: {}{}'.format(self.performance.repos(), 'ms')
-        print 'getting basic branch info: {}{}'.format(self.performance.basic_branches(), 'ms')
-        print 'getting the issues: {}{}'.format(self.performance.issues(), 'ms')
-        print 'getting detailed branch info: {}{}'.format(self.performance.detailed_branches(), 'ms')
-        print 'total time: {}{}\n\n'.format(self.performance.total(), 'ms')
+        print self.REPOS_PERFORMANCE_TEMPLATE\
+            .format(self.performance.repos())
+        print self.BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE\
+            .format(self.performance.basic_branches())
+        print self.ISSUES_PERFORMANCE_TEMPLATE\
+            .format(self.performance.issues())
+        print self.DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE\
+            .format(self.performance.detailed_branches())
+        print self.TOTAL_PERFORMANCE_TEMPLATE\
+            .format(self.performance.total())
 
     def determine_number_of_threads(self, number_of_calls):
         max_number_of_threads = self.config.max_threads
