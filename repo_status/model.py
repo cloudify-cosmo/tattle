@@ -138,6 +138,31 @@ class QueryConfig(object):
 
         return os.path.join(self.resources_path, self.filename)
 
+class QueryPerformance(object):
+
+    def __init__(self):
+
+        self.repos_start = 0
+        self.repos_end = 0
+        self.basic_branches_start = 0
+        self.basic_branches_end = 0
+        self.issues_start = 0
+        self.issues_end = 0
+        self.detailed_branches_start = 0
+        self.detailed_branches_end = 0
+
+    def repos(self):
+        return (self.repos_end - self.repos_start) * 1000
+
+    def basic_branches(self):
+        return (self.basic_branches_end - self.basic_branches_start) * 1000
+
+    def issues(self):
+        return (self.issues_end - self.issues_start) * 1000
+
+    def detailed_branches(self):
+        return (self.detailed_branches_end - self.detailed_branches_start) * 1000
+
 
 class BranchQueryAbstract(object):
 
@@ -154,6 +179,7 @@ class BranchQuery(BranchQueryAbstract):
 
     def __init__(self, query_config):
         self.query_config = query_config
+        self.query_performance = QueryPerformance()
 
     def update_cache(self, query_branches):
         self.store_branches(query_branches)
@@ -177,28 +203,6 @@ class BranchQuery(BranchQueryAbstract):
                 print '*' * (len(str(b.containing_repo)))
 
             print b
-
-        def print_performance(self, description,
-                              start_time,
-                              get_branches_end,
-                              filter_branches_end,
-                              add_committers_end,
-                              update_cache_end,
-                              end_time):
-
-            get_branches_time = (get_branches_end - start_time) * 1000
-            filter_branches_time = (filter_branches_end - get_branches_end) * 1000
-            add_committers_time = (add_committers_end - filter_branches_end) * 1000
-            update_cache_time = (update_cache_end - add_committers_end) * 1000
-            total_time = (end_time - start_time) * 1000
-
-            print '\n'
-            print 'action:\n{}\n'.format(description)
-            print 'getting the branches: {}{}'.format(str(get_branches_time), 'ms')
-            print 'filtering the branches: {}{}'.format(str(filter_branches_time), 'ms')
-            print 'adding the committers: {}{}'.format(str(add_committers_time), 'ms')
-            print 'updating the cache: {}{}\n'.format(str(update_cache_time), 'ms')
-            print 'total time: {}{}\n\n'.format(str(total_time), 'ms')
 
     def determine_number_of_threads(self, number_of_calls):
         max_number_of_threads = self.query_config.max_threads
