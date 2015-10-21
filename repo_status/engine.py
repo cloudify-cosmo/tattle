@@ -2,6 +2,7 @@ import argparse
 from repo_status import model
 import os
 import sys
+import time
 
 _ARGUMENT_PARSER_DESCRIPTION = \
     ('Get in-depth information about the status '
@@ -89,58 +90,23 @@ class Engine(object):
 
         return os.path.join(os.path.expanduser('~'), user_resource_path)
 
-    @staticmethod
-    def print_performance(description,
-                          start_time,
-                          get_branches_end,
-                          filter_branches_end,
-                          add_committers_end,
-                          update_cache_end,
-                          end_time):
-
-        get_branches_time = (get_branches_end - start_time) * 1000
-        filter_branches_time = (filter_branches_end - get_branches_end) * 1000
-        add_committers_time = (add_committers_end - filter_branches_end) * 1000
-        update_cache_time = (update_cache_end - add_committers_end) * 1000
-        total_time = (end_time - start_time) * 1000
-
-        print '\n'
-        print 'action:\n{}\n'.format(description)
-        print 'getting the branches: {}{}'.format(str(get_branches_time), 'ms')
-        print 'filtering the branches: {}{}'.format(str(filter_branches_time), 'ms')
-        print 'adding the committers: {}{}'.format(str(add_committers_time), 'ms')
-        print 'updating the cache: {}{}\n'.format(str(update_cache_time), 'ms')
-        print 'total time: {}{}\n\n'.format(str(total_time), 'ms')
-
     def process_command(self, mode, query):
 
-        start_time = time.time()
+        query.performance.start = time.time()
 
         if mode == _UP_TO_DATE_MODE:
             branches = query.get_org_branches()
-            get_branches_end = time.time()
             query_branches = query.filter_branches(branches)
-            filter_branches_end = time.time()
             query.add_committers_and_dates(query_branches)
-            add_committers_end = time.time()
             query.update_cache(query_branches)
-            update_cache_end = time.time()
 
         else:
             query_branches = query.load_branches()
 
         query.output(query_branches)
 
-        end_time = time.time()
-
-        Engine.print_performance(query.DESCRIPTION,
-                                 start_time,
-                                 get_branches_end,
-                                 filter_branches_end,
-                                 add_committers_end,
-                                 update_cache_end,
-                                 end_time
-                                 )
+        query.performance.end = time.time()
+        query.print_performance()
 
     @staticmethod
     def enforce_caching_with_query(surplus_action, cfy_action, cache_action,

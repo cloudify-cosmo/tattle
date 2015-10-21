@@ -426,7 +426,7 @@ class TestBranchQuery(TestQueries):
         self.assertEqual(bq.determine_number_of_threads(5), 5)
         self.assertEqual(bq.determine_number_of_threads(15), 10)
 
-        bq.query_config.max_threads = QueryConfig.NO_THREAD_LIMIT
+        bq.config.max_threads = QueryConfig.NO_THREAD_LIMIT
 
         self.assertEqual(bq.determine_number_of_threads(5), 5)
         self.assertEqual(bq.determine_number_of_threads(15), 15)

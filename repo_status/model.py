@@ -139,10 +139,12 @@ class QueryConfig(object):
 
         return os.path.join(self.resources_path, self.filename)
 
+
 class QueryPerformance(object):
 
     def __init__(self):
 
+        self.start = 0
         self.repos_start = 0
         self.repos_end = 0
         self.basic_branches_start = 0
@@ -151,6 +153,10 @@ class QueryPerformance(object):
         self.issues_end = 0
         self.detailed_branches_start = 0
         self.detailed_branches_end = 0
+        self.end = 0
+
+    def total(self):
+        return (self.end - self.start) * 1000
 
     def repos(self):
         return (self.repos_end - self.repos_start) * 1000
@@ -173,14 +179,15 @@ class BranchQueryAbstract(object):
     def filter_branches(self, branches):
         pass
 
+
 class BranchQuery(BranchQueryAbstract):
 
     def filter_branches(self, branches):
         pass
 
     def __init__(self, query_config):
-        self.query_config = query_config
-        self.query_performance = QueryPerformance()
+        self.config = query_config
+        self.performance = QueryPerformance()
 
     def update_cache(self, query_branches):
         self.store_branches(query_branches)
@@ -205,8 +212,18 @@ class BranchQuery(BranchQueryAbstract):
 
             print b
 
+    def print_performance(self):
+
+        print '\n'
+        print 'action:\n{}\n'.format(self.DESCRIPTION)
+        print 'getting the repos: {}{}'.format(self.performance.repos(), 'ms')
+        print 'getting basic branch info: {}{}'.format(self.performance.basic_branches(), 'ms')
+        print 'getting the issues: {}{}'.format(self.performance.issues(), 'ms')
+        print 'getting detailed branch info: {}{}'.format(self.performance.detailed_branches(), 'ms')
+        print 'total time: {}{}\n\n'.format(self.performance.total(), 'ms')
+
     def determine_number_of_threads(self, number_of_calls):
-        max_number_of_threads = self.query_config.max_threads
+        max_number_of_threads = self.config.max_threads
         if max_number_of_threads == QueryConfig.NO_THREAD_LIMIT:
             return number_of_calls
         else:
@@ -214,7 +231,7 @@ class BranchQuery(BranchQueryAbstract):
 
     def get_num_of_repos(self):
 
-        org_name = self.query_config.org_name
+        org_name = self.config.org_name
 
         full_address = os.path.join(GITHUB_API_URL,
                                     ORGS,
@@ -230,7 +247,7 @@ class BranchQuery(BranchQueryAbstract):
         pagination_parameters = '?page={}&per_page=1'.format(repo_num)
         full_address = os.path.join(GITHUB_API_URL,
                                     ORGS,
-                                    self.query_config.org_name,
+                                    self.config.org_name,
                                     REPOS + pagination_parameters,
                                     )
         response = requests.get(full_address,
@@ -243,7 +260,7 @@ class BranchQuery(BranchQueryAbstract):
         return repo
 
     def get_repos(self):
-        self.query_performance.repos_start = time.time()
+        self.performance.repos_start = time.time()
 
         num_of_repos = self.get_num_of_repos()
         num_of_threads = self.determine_number_of_threads(num_of_repos)
@@ -251,7 +268,7 @@ class BranchQuery(BranchQueryAbstract):
         pool = ThreadPool(num_of_threads)
         repos = pool.map(self.get_repo, range(1, num_of_threads+1))
 
-        self.query_performance.repos_end = time.time()
+        self.performance.repos_end = time.time()
 
         return repos
 
@@ -286,17 +303,17 @@ class BranchQuery(BranchQueryAbstract):
 
         repos = self.get_repos()
 
-        self.query_performance.basic_branches_start = time.time()
+        self.performance.basic_branches_start = time.time()
         num_of_threads = self.determine_number_of_threads(len(repos))
         pool = ThreadPool(num_of_threads)
 
         branches_lists = pool.map(self.get_branches, repos)
-        self.query_performance.basic_branches_end = time.time()
+        self.performance.basic_branches_end = time.time()
         return list(itertools.chain.from_iterable(branches_lists))
 
     def load_branches(self):
 
-        json_filepath = self.query_config.get_cache_path()
+        json_filepath = self.config.get_cache_path()
         branches = []
         with open(json_filepath, 'r') as branches_file:
             json_branches = json.load(branches_file)
@@ -319,7 +336,7 @@ class BranchQuery(BranchQueryAbstract):
         return branches
 
     def store_branches(self, branches):
-        cache_path = self.query_config.get_cache_path()
+        cache_path = self.config.get_cache_path()
         base_dict = dict()
         base_dict[BRANCHES] = branches
 
@@ -350,7 +367,7 @@ class BranchQuery(BranchQueryAbstract):
     def add_commiter_and_date(self, branch):
         url = os.path.join(GITHUB_API_URL,
                            REPOS,
-                           self.query_config.org_name,
+                           self.config.org_name,
                            branch.containing_repo.name,
                            BRANCHES,
                            branch.name
@@ -366,14 +383,14 @@ class BranchQuery(BranchQueryAbstract):
 
     def add_committers_and_dates(self, query_branches):
 
-        self.query_performance.detailed_branches_start = time.time()
+        self.performance.detailed_branches_start = time.time()
 
         number_of_threads = \
             self.determine_number_of_threads(len(query_branches))
         pool = ThreadPool(number_of_threads)
         pool.map(self.add_commiter_and_date, query_branches)
 
-        self.query_performance.detailed_branches_end = time.time()
+        self.performance.detailed_branches_end = time.time()
 
     def update_branch_with_issue(self, branch):
         key = Issue.extract_issue_key(branch)
@@ -382,13 +399,13 @@ class BranchQuery(BranchQueryAbstract):
 
     def update_branches_with_issues(self, branches):
 
-        self.query_performance.issues_start = time.time()
+        self.performance.issues_start = time.time()
 
         number_of_threads = self.determine_number_of_threads(len(branches))
         pool = ThreadPool(number_of_threads)
         pool.map(self.update_branch_with_issue, branches)
 
-        self.query_performance.issues_end = time.time()
+        self.performance.issues_end = time.time()
 
 
 class BranchQuerySurplus(BranchQuery):
@@ -398,7 +415,7 @@ class BranchQuerySurplus(BranchQuery):
 
     def __init__(self, query_config):
         super(BranchQuerySurplus, self).__init__(query_config)
-        self.query_config.filename = BranchQuerySurplus.FILENAME
+        self.config.filename = BranchQuerySurplus.FILENAME
 
     def filter_branches(self, branches):
         return filter(BranchQuerySurplus.name_filter, branches)
@@ -431,7 +448,7 @@ class BranchQueryCfy(BranchQuery):
 
     def __init__(self, query_config):
         super(BranchQueryCfy, self).__init__(query_config)
-        self.query_config.filename = BranchQueryCfy.FILENAME
+        self.config.filename = BranchQueryCfy.FILENAME
 
     @staticmethod
     def name_filter(branch):
