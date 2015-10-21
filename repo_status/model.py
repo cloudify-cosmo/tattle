@@ -4,6 +4,7 @@ import json
 import os
 import re
 import requests
+import time
 
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -242,12 +243,16 @@ class BranchQuery(BranchQueryAbstract):
         return repo
 
     def get_repos(self):
+        self.query_performance.repos_start = time.time()
 
         num_of_repos = self.get_num_of_repos()
         num_of_threads = self.determine_number_of_threads(num_of_repos)
 
         pool = ThreadPool(num_of_threads)
         repos = pool.map(self.get_repo, range(1, num_of_threads+1))
+
+        self.query_performance.repos_end = time.time()
+
         return repos
 
     def get_json_branches(self, repo_name, org_name=CLOUDIFY_COSMO):
@@ -280,10 +285,13 @@ class BranchQuery(BranchQueryAbstract):
     def get_org_branches(self):
 
         repos = self.get_repos()
+
+        self.query_performance.basic_branches_start = time.time()
         num_of_threads = self.determine_number_of_threads(len(repos))
         pool = ThreadPool(num_of_threads)
 
         branches_lists = pool.map(self.get_branches, repos)
+        self.query_performance.basic_branches_end = time.time()
         return list(itertools.chain.from_iterable(branches_lists))
 
     def load_branches(self):
@@ -358,10 +366,14 @@ class BranchQuery(BranchQueryAbstract):
 
     def add_committers_and_dates(self, query_branches):
 
+        self.query_performance.detailed_branches_start = time.time()
+
         number_of_threads = \
             self.determine_number_of_threads(len(query_branches))
         pool = ThreadPool(number_of_threads)
         pool.map(self.add_commiter_and_date, query_branches)
+
+        self.query_performance.detailed_branches_end = time.time()
 
     def update_branch_with_issue(self, branch):
         key = Issue.extract_issue_key(branch)
@@ -370,9 +382,13 @@ class BranchQuery(BranchQueryAbstract):
 
     def update_branches_with_issues(self, branches):
 
+        self.query_performance.issues_start = time.time()
+
         number_of_threads = self.determine_number_of_threads(len(branches))
         pool = ThreadPool(number_of_threads)
         pool.map(self.update_branch_with_issue, branches)
+
+        self.query_performance.issues_end = time.time()
 
 
 class BranchQuerySurplus(BranchQuery):

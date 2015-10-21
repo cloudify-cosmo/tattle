@@ -1,7 +1,6 @@
 import argparse
 from repo_status import model
 import os
-import time
 import sys
 
 _ARGUMENT_PARSER_DESCRIPTION = \
