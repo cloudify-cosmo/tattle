@@ -7,8 +7,18 @@ import requests
 
 from multiprocessing.dummy import Pool as ThreadPool
 
+BRANCHES = 'branches'
+
+REPOS = 'repos'
+
+ORGS = 'orgs'
+
+CONTAINING_REPO = 'containing_repo'
+
 GITHUB_API_URL = 'https://api.github.com/'
 CLOUDIFY_COSMO = 'cloudify-cosmo'
+PUBLIC_REPOS = 'public_repos'
+TOTAL_PRIVATE_REPOS = 'total_private_repos'
 USERNAME = 'AviaE'
 PASSWORD = 'A1b2Y8z9'
 os.environ['GITHUB_USER'] = 'AviaE'  # remove this later
@@ -64,27 +74,18 @@ class Branch(object):
     def __lt__(self, other):
         return self.name < other.name
 
-    # @property
-    # def jira_status(self):
-    #     return self._jira_status
-    #
-    # @jira_status.setter
-    # def jira_status(self, value):
-    #     self._jira_status = value
-
     def __str__(self):
-
         issue = '' if self.jira_issue is None else str(self.jira_issue)
 
-        return 'Branch name: {}\n{}Last committer: {}\n'.\
-            format(self.name, issue, self.last_committer)
+        return 'Branch name: {}\n{}Last committer: {}\n'. \
+            format(self.name, issue, self.last_committer.encode('utf-8'))
 
 
 class Issue(object):
 
     JIRA_API_URL = 'https://cloudifysource.atlassian.net/rest/api/2/issue/'
-    STATUS_CLOSED = 'Closed'
-    STATUS_RESOLVED = 'Resolved'
+    STATUS_CLOSED = u'Closed'
+    STATUS_RESOLVED = u'Resolved'
 
     def __init__(self, key, status):
         self.key = key
@@ -103,7 +104,7 @@ class Issue(object):
 
     def __str__(self):
 
-        return 'JIRA status: {}\n'.format(self.status)
+        return u'JIRA status: {}\n'.format(self.status)
 
     @staticmethod
     def extract_issue_key(branch):
@@ -184,47 +185,52 @@ class BranchQuery(BranchQueryAbstract):
         else:
             return min(number_of_calls, max_number_of_threads)
 
-    def get_json_repos(self, org_name=CLOUDIFY_COSMO):
+    def get_num_of_repos(self):
+
+        org_name = self.query_config.org_name
 
         full_address = os.path.join(GITHUB_API_URL,
-                                    'orgs',
-                                    org_name,
-                                    'repos')
-        ### Attention !!! ###
-        # Following the instructions on this link:
-        # https://developer.github.com/v3/#pagination
-        # the default of a page is only 30.
-        # so we need to address this issue.
-        # thinking of it, it is actually a chance to make repo_status faster.
-        # we will use multiple requests to get the repos (think of how to use
-        # pool.map with
-
+                                    ORGS,
+                                    org_name)
         r = requests.get(full_address,
                          auth=(os.environ[GITHUB_USER],
-                               os.environ[GITHUB_PASS])
-                         )
-        return r.text
+                               os.environ[GITHUB_PASS]))
+        dr = json.loads(r.text)
 
-    def parse_json_repos(self, json_repos):
+        return dr[PUBLIC_REPOS] + dr[TOTAL_PRIVATE_REPOS]
 
-        detailed_list_of_repos = json.loads(json_repos)
-        list_of_repo_objects = [Repo(dr['name'])
-                                for dr in detailed_list_of_repos]
+    def get_repo(self, repo_num):
+        pagination_parameters = '?page={}&per_page=1'.format(repo_num)
+        full_address = os.path.join(GITHUB_API_URL,
+                                    ORGS,
+                                    self.query_config.org_name,
+                                    REPOS + pagination_parameters,
+                                    )
+        response = requests.get(full_address,
+                                auth=(os.environ[GITHUB_USER],
+                                      os.environ[GITHUB_PASS])
+                                )
 
-        return list_of_repo_objects
+        repo_dict = json.loads(response.text)
+        repo = Repo(repo_dict[0]['name'])
+        return repo
 
-    def get_repos(self, org_name=CLOUDIFY_COSMO):
-        json_repos = self.get_json_repos(org_name)
-        repo_list = self.parse_json_repos(json_repos)
-        return sorted(repo_list)
+    def get_repos(self):
+
+        num_of_repos = self.get_num_of_repos()
+        num_of_threads = self.determine_number_of_threads(num_of_repos)
+
+        pool = ThreadPool(num_of_threads)
+        repos = pool.map(self.get_repo, range(1, num_of_threads+1))
+        return repos
 
     def get_json_branches(self, repo_name, org_name=CLOUDIFY_COSMO):
 
         full_address = os.path.join(GITHUB_API_URL,
-                                    'repos',
+                                    REPOS,
                                     org_name,
                                     repo_name,
-                                    'branches')
+                                    BRANCHES)
         r = requests.get(full_address,
                          auth=(os.environ[GITHUB_USER],
                                os.environ[GITHUB_PASS])
@@ -245,9 +251,9 @@ class BranchQuery(BranchQueryAbstract):
 
         return sorted(branch_list)
 
-    def get_org_branches(self, org_name=CLOUDIFY_COSMO):
+    def get_org_branches(self):
 
-        repos = self.get_repos(org_name)
+        repos = self.get_repos()
         num_of_threads = self.determine_number_of_threads(len(repos))
         pool = ThreadPool(num_of_threads)
 
@@ -260,10 +266,10 @@ class BranchQuery(BranchQueryAbstract):
         branches = []
         with open(json_filepath, 'r') as branches_file:
             json_branches = json.load(branches_file)
-            for json_branch in json_branches['branches']:
+            for json_branch in json_branches[BRANCHES]:
 
-                repo = None if json_branch['containing_repo'] is None \
-                    else Repo(json_branch['containing_repo']
+                repo = None if json_branch[CONTAINING_REPO] is None \
+                    else Repo(json_branch[CONTAINING_REPO]
                                          ['name'])
                 jira_issue = None if json_branch['jira_issue'] is None \
                     else Issue(json_branch['jira_issue']['key'],
@@ -281,7 +287,7 @@ class BranchQuery(BranchQueryAbstract):
     def store_branches(self, branches):
         cache_path = self.query_config.get_cache_path()
         base_dict = dict()
-        base_dict['branches'] = branches
+        base_dict[BRANCHES] = branches
 
         with open(cache_path, 'w') as branches_file:
             json.dump(base_dict, branches_file, default=lambda x: x.__dict__)
@@ -309,10 +315,10 @@ class BranchQuery(BranchQueryAbstract):
 
     def add_commiter_and_date(self, branch):
         url = os.path.join(GITHUB_API_URL,
-                           'repos',
+                           REPOS,
                            self.query_config.org_name,
                            branch.containing_repo.name,
-                           'branches',
+                           BRANCHES,
                            branch.name
                            )
         s = requests.get(url, auth=(os.environ[GITHUB_USER],
@@ -324,7 +330,7 @@ class BranchQuery(BranchQueryAbstract):
         # Ask Nir how to convert GitHub's time/date representation
         # to a python object.
 
-    def add_commiters_and_dates(self, query_branches):
+    def add_committers_and_dates(self, query_branches):
 
         number_of_threads = \
             self.determine_number_of_threads(len(query_branches))

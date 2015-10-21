@@ -105,7 +105,7 @@ class Engine(object):
         if mode == _UP_TO_DATE_MODE:
             branches = query.get_org_branches()
             query_branches = query.filter_branches(branches)
-            query.add_commiters_and_dates(query_branches)
+            query.add_committers_and_dates(query_branches)
             query.update_cache(query_branches)
         else:
             query_branches = query.load_branches()
