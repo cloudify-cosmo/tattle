@@ -26,7 +26,7 @@ GITHUB_USER = 'GITHUB_USER'
 GITHUB_PASS = 'GITHUB_PASS'
 
 
-class Repo(object):
+class GitHubObject(object):
 
     def __init__(self, name):
         self.name = name
@@ -42,6 +42,11 @@ class Repo(object):
     def __lt__(self, other):
         return self.name < other.name
 
+class Repo(GitHubObject):
+
+    def __init__(self, name):
+        super(Repo, self).__init__(name)
+
     def __str__(self):
         return 'Repository: {0}'.format(self.name)
 
@@ -49,7 +54,7 @@ class Repo(object):
         return 'Repo(name={0})'.format(self.name)
 
 
-class Branch(object):
+class Branch(GitHubObject):
 
     def __init__(self,
                  name,
@@ -57,21 +62,10 @@ class Branch(object):
                  jira_issue=None,
                  committer_email=''
                  ):
-        self.name = name
+        super(Branch, self).__init__(name)
         self.containing_repo = containing_repo
         self.jira_issue = jira_issue
         self.committer_email = committer_email
-
-    def __eq__(self, other):
-        if type(other) is type(self):
-            return self.__dict__ == other.__dict__
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __lt__(self, other):
-        return self.name < other.name
 
     def __str__(self):
         issue = '' if self.jira_issue is None else str(self.jira_issue)
@@ -90,9 +84,6 @@ class Issue(object):
     def __init__(self, key, status):
         self.key = key
         self.status = status
-
-    # def __hash__(self):
-    #     return hash((self.key, self.status))
 
     def __eq__(self, other):
         if type(other) is type(self):

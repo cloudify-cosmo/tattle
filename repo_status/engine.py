@@ -80,10 +80,7 @@ def parse_arguments():
 
     args = parser.parse_args()
 
-    enforce_caching_with_query(surplus_action,
-                               cfy_action,
-                               cache_action,
-                               parser)
+    enforce_caching_with_query(parser, args, cache_action)
     return args, parser
 
 
@@ -141,30 +138,13 @@ def determine_resources_path(args):
     return os.path.join(os.path.expanduser('~'), user_resource_path)
 
 
-def enforce_caching_with_query(surplus_action, cfy_action, cache_action,
-                               parser):
-    """
-    Makes sure that if the user specified the cache-path flag,
-    She also specified a query ('surplus' of 'cfy')
-    """
-    given_args = set(sys.argv)
+def enforce_caching_with_query(parser, args, cache_action):
 
-    branch_queries_strings = set()
-    for s in surplus_action.option_strings + cfy_action.option_strings:
-        branch_queries_strings.add(s)
-        branch_queries_strings.add(s + '=' + USE_CACHE_MODE)
-        branch_queries_strings.add(s + '=' + UP_TO_DATE_MODE)
-        branch_queries_strings.add(s + ' ' + USE_CACHE_MODE)
-        branch_queries_strings.add(s + ' ' + UP_TO_DATE_MODE)
-
-    caching_cond = given_args & set(cache_action.option_strings)
-    query_cond = given_args & branch_queries_strings
-
-    if caching_cond and not query_cond:
-        parser.error(' or '.join(cache_action.option_strings) +
-                     ' must be given with ' +
-                     ' or '.join(branch_queries_strings))
-
+    if args.cache_path and not args.surplus_branches \
+            and not args.cfy_branches:
+        parser.error('{0} must be given with --cfy-branches or '
+                     '--surplus-branches'
+                     .format(' or '.join(cache_action.option_strings)))
 
 def process_command(mode, query):
 
