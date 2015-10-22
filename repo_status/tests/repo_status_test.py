@@ -61,7 +61,7 @@ class TestGitHubObjects(TestCase):
         self.cfy_1838_branch = Branch(CFY_1838_SPLIT_CONTAINERS,
                                       self.repo_cloudify_manager,
                                       jira_issue=self.cfy_1838_issue,
-                                      last_committer=MICAEL_SVERDLIK)
+                                      committer_email=MICAEL_SVERDLIK)
 
         self.repo_cloudify_ui = Repo(CLOUDIFY_UI)
         self.cfy_2938_issue = Issue(CFY_2938_KEY,
@@ -69,7 +69,7 @@ class TestGitHubObjects(TestCase):
         self.cfy_2938_branch = Branch(CFY_2938_KIBANA_POC,
                                       self.repo_cloudify_ui,
                                       jira_issue=self.cfy_2938_issue,
-                                      last_committer=EREZ_CARMEL)
+                                      committer_email=EREZ_CARMEL)
 
         self.repo_cloudify_cli = Repo(CLOUDIFY_CLI)
         self.cfy_2709_issue = Issue(CFY_2709_KEY,
@@ -77,7 +77,7 @@ class TestGitHubObjects(TestCase):
         self.cfy_2709_branch = Branch(CFY_2709_FIX_WINDOWS,
                                       self.repo_cloudify_cli,
                                       jira_issue=self.cfy_2709_issue,
-                                      last_committer=MICAEL_SVERDLIK)
+                                      committer_email=MICAEL_SVERDLIK)
 
         self.cfy_no_dash_repo = Repo(CLOUDIFY_VSPHERE_PLUGIN)
         self.cfy_no_dash_issue = Issue(CFY_NO_DASH_KEY,
@@ -86,19 +86,19 @@ class TestGitHubObjects(TestCase):
         self.cfy_no_dash_branch = Branch(CFY_NO_DASH,
                                          self.cfy_no_dash_repo,
                                          jira_issue=self.cfy_no_dash_issue,
-                                         last_committer=KOSTYA
+                                         committer_email=KOSTYA
                                          )
 
         self.cfy_giveaway_cloudify_manager \
             = Branch(CFY_GIVEAWAY,
                      self.repo_cloudify_manager,
-                     last_committer=NIR0S
+                     committer_email=NIR0S
                      )
 
         self.surplus_branch_remove_travis_sudo \
             = Branch(SURPLUS_REMOVE_TRAVIS_SUDO,
                      self.repo_cloudify_manager,
-                     last_committer=DAN_KILMAN
+                     committer_email=DAN_KILMAN
                      )
 
 
@@ -195,7 +195,7 @@ class TestBranch(TestGitHubObjects):
         other_branch = Branch(CFY_1838_SPLIT_CONTAINERS,
                               self.repo_cloudify_manager,
                               jira_issue=self.cfy_1838_issue,
-                              last_committer=MICAEL_SVERDLIK)
+                              committer_email=MICAEL_SVERDLIK)
         self.assertEqual(self.cfy_1838_branch, other_branch)
 
     def test_ne_different(self):
@@ -214,7 +214,7 @@ class TestBranch(TestGitHubObjects):
         other_branch = Branch(CFY_1838_SPLIT_CONTAINERS,
                               self.repo_cloudify_manager,
                               jira_issue=self.cfy_1838_issue,
-                              last_committer=MICAEL_SVERDLIK)
+                              committer_email=MICAEL_SVERDLIK)
 
         other_branch.extra_attribute = None
         self.assertNotEqual(self.cfy_1838_branch,
@@ -225,7 +225,7 @@ class TestBranch(TestGitHubObjects):
         equal_branch = Branch(CFY_2709_FIX_WINDOWS,
                               self.repo_cloudify_cli,
                               jira_issue=self.cfy_2709_issue,
-                              last_committer=MICAEL_SVERDLIK)
+                              committer_email=MICAEL_SVERDLIK)
 
         self.assertFalse(self.cfy_2709_branch <
                          self.cfy_1838_branch)
@@ -389,17 +389,17 @@ class TestBranchQuery(TestQueries):
         self.cfy_regular_branch = Branch(CFY_1838_SPLIT_CONTAINERS,
                                          self.repo_cloudify_manager,
                                          jira_issue=self.cfy_1838_issue,
-                                         last_committer=MICAEL_SVERDLIK
+                                         committer_email=MICAEL_SVERDLIK
                                          )
 
         self.cfy_giveaway_branch = Branch(CFY_GIVEAWAY,
                                           self.repo_cloudify_manager,
-                                          last_committer=NIR0S
+                                          committer_email=NIR0S
                                           )
 
         self.surplus_branch = Branch(SURPLUS_REMOVE_TRAVIS_SUDO,
                                      self.repo_cloudify_manager,
-                                     last_committer=DAN_KILMAN
+                                     committer_email=DAN_KILMAN
                                      )
         output = \
             '{0}{1}\n{2}\n{3}\n'.format(

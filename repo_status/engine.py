@@ -41,161 +41,162 @@ RESOURCES_FOLDER_PATH = \
                  '.cloudify-repo-status/resources/')
 
 
-class Engine(object):
+def parse_arguments():
 
-    def parse_arguments(self):
+    parser = argparse.ArgumentParser(
+        description=_ARGUMENT_PARSER_DESCRIPTION)
+    group = parser.add_mutually_exclusive_group()
+    surplus_action = \
+        group.add_argument('-s', SURPLUS_BRANCHES_COMMAND_NAME,
+                           type=str,
+                           nargs='?',
+                           choices=[USE_CACHE_MODE,
+                                    UP_TO_DATE_MODE],
+                           const=UP_TO_DATE_MODE,
+                           default=None,
+                           help=_SURPLUS_BRANCHES_HELP_TEXT)
 
-        parser = argparse.ArgumentParser(
-            description=_ARGUMENT_PARSER_DESCRIPTION)
-        group = parser.add_mutually_exclusive_group()
-        surplus_action = \
-            group.add_argument('-s', SURPLUS_BRANCHES_COMMAND_NAME,
-                               type=str,
-                               nargs='?',
-                               choices=[USE_CACHE_MODE,
-                                        UP_TO_DATE_MODE],
-                               const=UP_TO_DATE_MODE,
-                               default=None,
-                               help=_SURPLUS_BRANCHES_HELP_TEXT)
+    cfy_action = \
+        group.add_argument('-c', CFY_BRANCHES_COMMAND_NAME,
+                           type=str,
+                           nargs='?',
+                           choices=[USE_CACHE_MODE,
+                                    UP_TO_DATE_MODE],
+                           const=UP_TO_DATE_MODE,
+                           default=None,
+                           help=_CFY_BRANCHES_HELP_TEXT)
 
-        cfy_action = \
-            group.add_argument('-c', CFY_BRANCHES_COMMAND_NAME,
-                               type=str,
-                               nargs='?',
-                               choices=[USE_CACHE_MODE,
-                                        UP_TO_DATE_MODE],
-                               const=UP_TO_DATE_MODE,
-                               help=_CFY_BRANCHES_HELP_TEXT)
+    cache_action = \
+        parser.add_argument('-p', CACHE_PATH_COMMAND_NAME,
+                            type=str,
+                            default=None,
+                            help=_CACHE_PATH_HELP_TEXT,
+                            )
 
-        cache_action = \
-            parser.add_argument('-p', CACHE_PATH_COMMAND_NAME,
-                                type=str,
-                                help=_CACHE_PATH_HELP_TEXT,
-                                )
+    parser.add_argument('-t', MAX_THREADS_COMMAND_NAME,
+                        type=int,
+                        default=model.QueryConfig.NO_THREAD_LIMIT,
+                        help=_MAX_THREADS_HELP_TEXT)
 
-        parser.add_argument('-t', MAX_THREADS_COMMAND_NAME,
-                            type=int,
-                            default=model.QueryConfig.NO_THREAD_LIMIT,
-                            help=_MAX_THREADS_HELP_TEXT)
+    args = parser.parse_args()
 
-        Engine.enforce_caching_with_query(surplus_action,
-                                          cfy_action,
-                                          cache_action,
-                                          parser)
-        args = parser.parse_args()
-        return args, parser
+    enforce_caching_with_query(surplus_action,
+                               cfy_action,
+                               cache_action,
+                               parser)
+    return args, parser
 
-    @staticmethod
-    def determine_if_cache_exists(command_name, user_resource_path):
 
+def determine_if_cache_exists(command_name, user_resource_path):
+
+    try:
+        with open(user_resource_path, 'r'):
+            if command_name == SURPLUS_BRANCHES_PARSE_NAME:
+                with open(os.path.join(user_resource_path,
+                                       model
+                                       .BranchQuerySurplus
+                                       .FILENAME), 'r'):
+                    pass
+            if command_name == CFY_BRANCHES_PARSE_NAME:
+                with open(os.path.join(user_resource_path,
+                                       model
+                                       .BranchQueryCfy
+                                       .FILENAME), 'r'):
+                    pass
+
+    except IOError:
+        sys.exit(CACHE_DOESNT_EXIST)
+
+
+def determine_if_cache_path_is_legal(user_resource_path):
+
+    if not os.path.exists(user_resource_path):
         try:
-            with open(user_resource_path, 'r'):
-                if command_name == SURPLUS_BRANCHES_PARSE_NAME:
-                    with open(os.path.join(user_resource_path,
-                                           model
-                                           .BranchQuerySurplus
-                                           .FILENAME), 'r'):
-                        pass
-                if command_name == CFY_BRANCHES_PARSE_NAME:
-                    with open(os.path.join(user_resource_path,
-                                           model
-                                           .BranchQueryCfy
-                                           .FILENAME), 'r'):
-                        pass
+            os.makedirs(user_resource_path)
+        except (IOError, OSError):
+            sys.exit(CACHE_PATH_INVALID)
 
-        except IOError:
-            sys.exit(CACHE_DOESNT_EXIST)
 
-    @staticmethod
-    def determine_if_cache_path_is_legal(user_resource_path):
+def determine_resources_path(args):
 
-        if not os.path.exists(user_resource_path):
-            try:
-                os.makedirs(user_resource_path)
-            except (IOError, OSError):
-                sys.exit(CACHE_PATH_INVALID)
+    d = vars(args)
+    if d[CACHE_PATH_PARSE_NAME] is None:
+        return RESOURCES_FOLDER_PATH
 
-    @staticmethod
-    def determine_resources_path(args):
+    user_resource_path = os.path.join(os.path.expanduser('~'),
+                                      d[CACHE_PATH_PARSE_NAME])
+    command_name = SURPLUS_BRANCHES_PARSE_NAME \
+        if SURPLUS_BRANCHES_PARSE_NAME in d else CFY_BRANCHES_PARSE_NAME
 
-        d = vars(args)
-        if d[CACHE_PATH_PARSE_NAME] is None:
-            return RESOURCES_FOLDER_PATH
+    # if the user wishes to load the data from a predefined existing cache,
+    # then we need to make sure that it exists.
+    if USE_CACHE_MODE in d.values():
+        determine_if_cache_exists(command_name, user_resource_path)
 
-        user_resource_path = os.path.join(os.path.expanduser('~'),
-                                          d[CACHE_PATH_PARSE_NAME])
-        command_name = SURPLUS_BRANCHES_PARSE_NAME \
-            if SURPLUS_BRANCHES_PARSE_NAME in d else CFY_BRANCHES_PARSE_NAME
+    # if the user wishes to use a custom path to save his cache in,
+    # this path doesn't have to exist right now, but it must be legal.
+    else:
+        determine_if_cache_path_is_legal(user_resource_path)
 
-        # if the user wishes to load the data from a predefined existing cache,
-        # then we need to make sure that it exists.
-        if USE_CACHE_MODE in d.values():
-            Engine.determine_if_cache_exists(command_name, user_resource_path)
+    return os.path.join(os.path.expanduser('~'), user_resource_path)
 
-        # if the user wishes to use a custom path to save his cache in,
-        # this path doesn't have to exist right now, but it must be legal.
-        else:
-            Engine.determine_if_cache_path_is_legal(user_resource_path)
 
-        return os.path.join(os.path.expanduser('~'), user_resource_path)
+def enforce_caching_with_query(surplus_action, cfy_action, cache_action,
+                               parser):
+    """
+    Makes sure that if the user specified the cache-path flag,
+    She also specified a query ('surplus' of 'cfy')
+    """
+    given_args = set(sys.argv)
 
-    @staticmethod
-    def enforce_caching_with_query(surplus_action, cfy_action, cache_action,
-                                   parser):
-        """
-        Makes sure that if the user specified the cache-path flag,
-        She also specified a query (surplus of cfy)
-        """
-        given_args = set(sys.argv)
+    branch_queries_strings = set()
+    for s in surplus_action.option_strings + cfy_action.option_strings:
+        branch_queries_strings.add(s)
+        branch_queries_strings.add(s + '=' + USE_CACHE_MODE)
+        branch_queries_strings.add(s + '=' + UP_TO_DATE_MODE)
+        branch_queries_strings.add(s + ' ' + USE_CACHE_MODE)
+        branch_queries_strings.add(s + ' ' + UP_TO_DATE_MODE)
 
-        branch_queries_strings = set()
-        for s in surplus_action.option_strings + cfy_action.option_strings:
-            branch_queries_strings.add(s)
-            branch_queries_strings.add(s + '=' + USE_CACHE_MODE)
-            branch_queries_strings.add(s + '=' + UP_TO_DATE_MODE)
-            branch_queries_strings.add(s + ' ' + USE_CACHE_MODE)
-            branch_queries_strings.add(s + ' ' + UP_TO_DATE_MODE)
+    caching_cond = given_args & set(cache_action.option_strings)
+    query_cond = given_args & branch_queries_strings
 
-        caching_cond = given_args & set(cache_action.option_strings)
-        query_cond = not given_args & branch_queries_strings
+    if caching_cond and not query_cond:
+        parser.error(' or '.join(cache_action.option_strings) +
+                     ' must be given with ' +
+                     ' or '.join(branch_queries_strings))
 
-        if caching_cond and query_cond:
-            parser.error(' or '.join(cache_action.option_strings) +
-                         ' must be given with ' +
-                         ' or '.join(branch_queries_strings))
 
-    def process_command(self, mode, query):
+def process_command(mode, query):
 
-        query.performance.start = time.time()
+    query.performance.start = time.time()
 
-        if mode == UP_TO_DATE_MODE:
-            branches = query.get_org_branches()
-            query_branches = query.filter_branches(branches)
-            query.add_committers_and_dates(query_branches)
-            query.update_cache(query_branches)
+    if mode == UP_TO_DATE_MODE:
+        branches = query.get_org_branches()
+        query_branches = query.filter_branches(branches)
+        query.add_committers_and_dates(query_branches)
+        query.update_cache(query_branches)
 
-        else:
-            query_branches = query.load_branches()
+    else:
+        query_branches = query.load_branches()
 
-        query.output(query_branches)
+    query.output(query_branches)
 
-        query.performance.end = time.time()
-        query.print_performance()
+    query.performance.end = time.time()
+    query.print_performance()
 
 
 def main():
 
-    engine = Engine()
-    args, parser = engine.parse_arguments()
-    resources_path = engine.determine_resources_path(args)
+    args, parser = parse_arguments()
+    resources_path = determine_resources_path(args)
     query_config = model.QueryConfig(resources_path, args.max_threads)
 
     if args.surplus_branches:
-        engine.process_command(args.surplus_branches,
-                               model.BranchQuerySurplus(query_config))
+        process_command(args.surplus_branches,
+                        model.BranchQuerySurplus(query_config))
     elif args.cfy_branches:
-        engine.process_command(args.cfy_branches,
-                               model.BranchQueryCfy(query_config))
+        process_command(args.cfy_branches,
+                        model.BranchQueryCfy(query_config))
     else:
         parser.print_usage(file=None)
 

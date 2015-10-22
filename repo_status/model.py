@@ -55,12 +55,12 @@ class Branch(object):
                  name,
                  containing_repo,
                  jira_issue=None,
-                 last_committer=''
+                 committer_email=''
                  ):
         self.name = name
         self.containing_repo = containing_repo
         self.jira_issue = jira_issue
-        self.committer_email = last_committer
+        self.committer_email = committer_email
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -91,8 +91,8 @@ class Issue(object):
         self.key = key
         self.status = status
 
-    def __hash__(self):
-        return hash((self.key, self.status))
+    # def __hash__(self):
+    #     return hash((self.key, self.status))
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -103,9 +103,7 @@ class Issue(object):
         return not self.__eq__(other)
 
     def __str__(self):
-
-        return self.JIRA_STR_TEMPLATE\
-            .format(self.status)
+        return self.JIRA_STR_TEMPLATE.format(self.status)
 
     @staticmethod
     def extract_issue_key(branch):
@@ -168,7 +166,8 @@ class QueryPerformance(object):
         return (self.issues_end - self.issues_start) * 1000
 
     def detailed_branches(self):
-        return (self.detailed_branches_end - self.detailed_branches_start) * 1000
+        return (self.detailed_branches_end
+                - self.detailed_branches_start) * 1000
 
 
 class BranchQueryAbstract(object):
@@ -184,11 +183,16 @@ class BranchQuery(BranchQueryAbstract):
 
     DESCRIPTION = None
 
-    ACTION_PERFORMANCE_TEMPLATE = '\naction:\n{0}\n'
-    REPOS_PERFORMANCE_TEMPLATE = 'getting the repos: {0}ms'
-    BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE = 'getting basic branch info: {0}ms'
-    ISSUES_PERFORMANCE_TEMPLATE = 'getting the issues: {0}ms'
-    DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE = 'getting detailed branch info: {0}ms'
+    ACTION_PERFORMANCE_TEMPLATE = \
+        '\naction:\n{0}\n'
+    REPOS_PERFORMANCE_TEMPLATE = \
+        'getting the repos: {0}ms'
+    BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE = \
+        'getting basic branch info: {0}ms'
+    ISSUES_PERFORMANCE_TEMPLATE = \
+        'getting the issues: {0}ms'
+    DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE = \
+        'getting detailed branch info: {0}ms'
     TOTAL_PERFORMANCE_TEMPLATE = 'total time: {0}ms'
 
     def filter_branches(self, branches):
@@ -340,7 +344,7 @@ class BranchQuery(BranchQueryAbstract):
                 branch_object = Branch(json_branch['name'],
                                        repo,
                                        jira_issue=jira_issue,
-                                       last_committer=last_committer
+                                       committer_email=last_committer
                                        )
                 branches.append(branch_object)
         return branches
