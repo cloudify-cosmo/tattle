@@ -158,7 +158,7 @@ class TestRepo(TestGitHubObjects):
     def test_str(self):
 
         self.assertEqual(str(self.repo_cloudify_manager),
-                         'Repository: {}'.format(CLOUDIFY_MANAGER)
+                         'Repository: {0}'.format(CLOUDIFY_MANAGER)
                          )
 
         self.assertNotEqual(str(self.repo_cloudify_manager),
@@ -167,7 +167,7 @@ class TestRepo(TestGitHubObjects):
     def test_repr(self):
 
         self.assertEqual(repr(self.repo_cloudify_manager),
-                         'Repo(name={})'.format(CLOUDIFY_MANAGER)
+                         'Repo(name={0})'.format(CLOUDIFY_MANAGER)
                          )
 
         self.assertNotEqual(str(self.repo_cloudify_manager),
@@ -254,7 +254,7 @@ class TestBranch(TestGitHubObjects):
     def test_str(self):
 
         self.assertEqual(str(self.cfy_1838_branch),
-                         'Branch name: {}\n{}Last committer: {}\n'
+                         'Branch name: {0}\n{1}Last committer: {2}\n'
                          .format(self.cfy_1838_branch.name,
                                  'JIRA status: ' +
                                  self.cfy_1838_branch.jira_issue.status +
@@ -263,7 +263,7 @@ class TestBranch(TestGitHubObjects):
                          )
 
         self.assertEqual(str(self.surplus_branch_remove_travis_sudo),
-                         'Branch name: {}\n{}Last committer: {}\n'
+                         'Branch name: {0}\n{1}Last committer: {2}\n'
                          .format(self.surplus_branch_remove_travis_sudo.name,
                                  '',
                                  self.surplus_branch_remove_travis_sudo.
@@ -310,7 +310,7 @@ class TestIssue(TestGitHubObjects):
     def test_str(self):
 
         self.assertEqual(str(self.cfy_1838_issue),
-                         'JIRA status: {}\n'
+                         'JIRA status: {0}\n'
                          .format(self.cfy_1838_issue.status)
                          )
 
@@ -402,7 +402,7 @@ class TestBranchQuery(TestQueries):
                                      last_committer=DAN_KILMAN
                                      )
         output = \
-            '{}{}\n{}\n{}\n'.format(
+            '{0}{1}\n{2}\n{3}\n'.format(
                 REPO_OUTPUT_HEADLINE,
                 str(self.cfy_regular_branch),
                 str(self.cfy_giveaway_branch),

@@ -43,10 +43,10 @@ class Repo(object):
         return self.name < other.name
 
     def __str__(self):
-        return 'Repository: {}'.format(self.name)
+        return 'Repository: {0}'.format(self.name)
 
     def __repr__(self):
-        return 'Repo(name={})'.format(self.name)
+        return 'Repo(name={0})'.format(self.name)
 
 
 class Branch(object):
@@ -60,7 +60,7 @@ class Branch(object):
         self.name = name
         self.containing_repo = containing_repo
         self.jira_issue = jira_issue
-        self.last_committer = last_committer
+        self.committer_email = last_committer
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -76,13 +76,14 @@ class Branch(object):
     def __str__(self):
         issue = '' if self.jira_issue is None else str(self.jira_issue)
 
-        return 'Branch name: {}\n{}Last committer: {}\n'. \
-            format(self.name, issue, self.last_committer.encode('utf-8'))
+        return 'Branch name: {0}\n{1}Last committer: {2}\n'. \
+            format(self.name, issue, self.committer_email.encode('utf-8'))
 
 
 class Issue(object):
 
     JIRA_API_URL = 'https://cloudifysource.atlassian.net/rest/api/2/issue/'
+    JIRA_STR_TEMPLATE = u'JIRA status: {0}\n'
     STATUS_CLOSED = u'Closed'
     STATUS_RESOLVED = u'Resolved'
 
@@ -103,7 +104,8 @@ class Issue(object):
 
     def __str__(self):
 
-        return u'JIRA status: {}\n'.format(self.status)
+        return self.JIRA_STR_TEMPLATE\
+            .format(self.status)
 
     @staticmethod
     def extract_issue_key(branch):
@@ -180,11 +182,14 @@ class BranchQueryAbstract(object):
 
 class BranchQuery(BranchQueryAbstract):
 
+    DESCRIPTION = None
+
+    ACTION_PERFORMANCE_TEMPLATE = '\naction:\n{0}\n'
     REPOS_PERFORMANCE_TEMPLATE = 'getting the repos: {0}ms'
     BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE = 'getting basic branch info: {0}ms'
     ISSUES_PERFORMANCE_TEMPLATE = 'getting the issues: {0}ms'
     DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE = 'getting detailed branch info: {0}ms'
-    TOTAL_PERFORMANCE_TEMPLATE = 'total time: {0}ms\n\n'
+    TOTAL_PERFORMANCE_TEMPLATE = 'total time: {0}ms'
 
     def filter_branches(self, branches):
         pass
@@ -192,17 +197,12 @@ class BranchQuery(BranchQueryAbstract):
     def __init__(self, query_config):
         self.config = query_config
         self.performance = QueryPerformance()
-        self.DESCRIPTION = None
 
     def update_cache(self, query_branches):
         self.store_branches(query_branches)
 
     def output(self, branches):
-        '''
-        gets a list of Branch objects and prints them
-        this method assumes that the branches are sorted first by repo name,
-        and then by branch name
-        '''
+
         cur_repo_name = None
 
         for b in branches:
@@ -219,8 +219,8 @@ class BranchQuery(BranchQueryAbstract):
 
     def print_performance(self):
 
-        print '\n'
-        print 'action:\n{}\n'.format(self.DESCRIPTION)
+        print self.ACTION_PERFORMANCE_TEMPLATE\
+            .format(self.DESCRIPTION)
         print self.REPOS_PERFORMANCE_TEMPLATE\
             .format(self.performance.repos())
         print self.BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE\
@@ -254,7 +254,7 @@ class BranchQuery(BranchQueryAbstract):
         return dr[PUBLIC_REPOS] + dr[TOTAL_PRIVATE_REPOS]
 
     def get_repo(self, repo_num):
-        pagination_parameters = '?page={}&per_page=1'.format(repo_num)
+        pagination_parameters = '?page={0}&per_page=1'.format(repo_num)
         full_address = os.path.join(GITHUB_API_URL,
                                     ORGS,
                                     self.config.org_name,
@@ -335,7 +335,7 @@ class BranchQuery(BranchQueryAbstract):
                 jira_issue = None if json_branch['jira_issue'] is None \
                     else Issue(json_branch['jira_issue']['key'],
                                json_branch['jira_issue']['status'])
-                last_committer = json_branch['last_committer']
+                last_committer = json_branch['committer_email']
 
                 branch_object = Branch(json_branch['name'],
                                        repo,
@@ -385,8 +385,8 @@ class BranchQuery(BranchQueryAbstract):
         s = requests.get(url, auth=(os.environ[GITHUB_USER],
                                     os.environ[GITHUB_PASS])).text
         json_details = json.loads(s)
-        branch.last_committer = \
-            json_details['commit']['commit']['author']['name']
+        branch.committer_email = \
+            json_details['commit']['commit']['author']['email']
         # Remember to add dates, preferably in a date-Object format
         # Ask Nir how to convert GitHub's time/date representation
         # to a python object.

@@ -14,23 +14,23 @@ _CFY_BRANCHES_HELP_TEXT = \
     ' is either \'closed\' or \'resolved\''
 _CACHE_PATH_HELP_TEXT = \
     'supply a custom path for the cache files\n. ' \
-    'if a custom path is not supplied, ' \
+    'if a custom path is no\t supplied, ' \
     'the files will be stored under your home directory.'
 _MAX_THREADS_HELP_TEXT = \
     'maximal number of threads used for retrieving branch data.\n' \
     'if not specified, the program will use as many threads as it needs'
 
-_SURPLUS_BRANCHES_COMMAND_NAME = '--surplus-branches'
-_CFY_BRANCHES_COMMAND_NAME = '--cfy-branches'
-_CACHE_PATH_COMMAND_NAME = '--cache-path'
-_MAX_THREADS_COMMAND_NAME = '--max-threads'
+SURPLUS_BRANCHES_COMMAND_NAME = '--surplus-branches'
+CFY_BRANCHES_COMMAND_NAME = '--cfy-branches'
+CACHE_PATH_COMMAND_NAME = '--cache-path'
+MAX_THREADS_COMMAND_NAME = '--max-threads'
 
-_SURPLUS_BRANCHES_PARSE_NAME = 'surplus_branches'
-_CFY_BRANCHES_PARSE_NAME = 'cfy_branches'
-_CACHE_PATH_PARSE_NAME = 'cache_path'
+SURPLUS_BRANCHES_PARSE_NAME = 'surplus_branches'
+CFY_BRANCHES_PARSE_NAME = 'cfy_branches'
+CACHE_PATH_PARSE_NAME = 'cache_path'
 
-_USE_CACHE_MODE = 'use-cache'
-_UP_TO_DATE_MODE = 'up-to-date'
+USE_CACHE_MODE = 'use-cache'
+UP_TO_DATE_MODE = 'up-to-date'
 
 CACHE_DOESNT_EXIST = 'The cache path you specified doesn\'t exist, ' \
                      'or it doesn\'t contain the required cache files.'
@@ -49,31 +49,31 @@ class Engine(object):
             description=_ARGUMENT_PARSER_DESCRIPTION)
         group = parser.add_mutually_exclusive_group()
         surplus_action = \
-            group.add_argument('-s', _SURPLUS_BRANCHES_COMMAND_NAME,
+            group.add_argument('-s', SURPLUS_BRANCHES_COMMAND_NAME,
                                type=str,
                                nargs='?',
-                               choices=[_USE_CACHE_MODE,
-                                        _UP_TO_DATE_MODE],
-                               const=_UP_TO_DATE_MODE,
+                               choices=[USE_CACHE_MODE,
+                                        UP_TO_DATE_MODE],
+                               const=UP_TO_DATE_MODE,
                                default=None,
                                help=_SURPLUS_BRANCHES_HELP_TEXT)
 
         cfy_action = \
-            group.add_argument('-c', _CFY_BRANCHES_COMMAND_NAME,
+            group.add_argument('-c', CFY_BRANCHES_COMMAND_NAME,
                                type=str,
                                nargs='?',
-                               choices=[_USE_CACHE_MODE,
-                                        _UP_TO_DATE_MODE],
-                               const=_UP_TO_DATE_MODE,
+                               choices=[USE_CACHE_MODE,
+                                        UP_TO_DATE_MODE],
+                               const=UP_TO_DATE_MODE,
                                help=_CFY_BRANCHES_HELP_TEXT)
 
         cache_action = \
-            parser.add_argument('-p', _CACHE_PATH_COMMAND_NAME,
+            parser.add_argument('-p', CACHE_PATH_COMMAND_NAME,
                                 type=str,
                                 help=_CACHE_PATH_HELP_TEXT,
                                 )
 
-        parser.add_argument('-t', _MAX_THREADS_COMMAND_NAME,
+        parser.add_argument('-t', MAX_THREADS_COMMAND_NAME,
                             type=int,
                             default=model.QueryConfig.NO_THREAD_LIMIT,
                             help=_MAX_THREADS_HELP_TEXT)
@@ -90,13 +90,13 @@ class Engine(object):
 
         try:
             with open(user_resource_path, 'r'):
-                if command_name == _SURPLUS_BRANCHES_PARSE_NAME:
+                if command_name == SURPLUS_BRANCHES_PARSE_NAME:
                     with open(os.path.join(user_resource_path,
                                            model
                                            .BranchQuerySurplus
                                            .FILENAME), 'r'):
                         pass
-                if command_name == _CFY_BRANCHES_PARSE_NAME:
+                if command_name == CFY_BRANCHES_PARSE_NAME:
                     with open(os.path.join(user_resource_path,
                                            model
                                            .BranchQueryCfy
@@ -119,21 +119,21 @@ class Engine(object):
     def determine_resources_path(args):
 
         d = vars(args)
-        if d[_CACHE_PATH_PARSE_NAME] is None:
+        if d[CACHE_PATH_PARSE_NAME] is None:
             return RESOURCES_FOLDER_PATH
 
         user_resource_path = os.path.join(os.path.expanduser('~'),
-                                          d[_CACHE_PATH_PARSE_NAME])
-        command_name = _SURPLUS_BRANCHES_PARSE_NAME \
-            if _SURPLUS_BRANCHES_PARSE_NAME in d else _CFY_BRANCHES_PARSE_NAME
+                                          d[CACHE_PATH_PARSE_NAME])
+        command_name = SURPLUS_BRANCHES_PARSE_NAME \
+            if SURPLUS_BRANCHES_PARSE_NAME in d else CFY_BRANCHES_PARSE_NAME
 
         # if the user wishes to load the data from a predefined existing cache,
         # then we need to make sure that it exists.
-        if _USE_CACHE_MODE in d.values():
+        if USE_CACHE_MODE in d.values():
             Engine.determine_if_cache_exists(command_name, user_resource_path)
 
         # if the user wishes to use a custom path to save his cache in,
-        # this path need not exist right now, but it must be legal.
+        # this path doesn't have to exist right now, but it must be legal.
         else:
             Engine.determine_if_cache_path_is_legal(user_resource_path)
 
@@ -151,10 +151,10 @@ class Engine(object):
         branch_queries_strings = set()
         for s in surplus_action.option_strings + cfy_action.option_strings:
             branch_queries_strings.add(s)
-            branch_queries_strings.add(s + '=' + _USE_CACHE_MODE)
-            branch_queries_strings.add(s + '=' + _UP_TO_DATE_MODE)
-            branch_queries_strings.add(s + ' ' + _USE_CACHE_MODE)
-            branch_queries_strings.add(s + ' ' + _UP_TO_DATE_MODE)
+            branch_queries_strings.add(s + '=' + USE_CACHE_MODE)
+            branch_queries_strings.add(s + '=' + UP_TO_DATE_MODE)
+            branch_queries_strings.add(s + ' ' + USE_CACHE_MODE)
+            branch_queries_strings.add(s + ' ' + UP_TO_DATE_MODE)
 
         caching_cond = given_args & set(cache_action.option_strings)
         query_cond = not given_args & branch_queries_strings
@@ -168,7 +168,7 @@ class Engine(object):
 
         query.performance.start = time.time()
 
-        if mode == _UP_TO_DATE_MODE:
+        if mode == UP_TO_DATE_MODE:
             branches = query.get_org_branches()
             query_branches = query.filter_branches(branches)
             query.add_committers_and_dates(query_branches)
