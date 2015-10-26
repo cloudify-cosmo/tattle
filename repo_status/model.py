@@ -18,6 +18,7 @@ GITHUB_API_URL = 'https://api.github.com/'
 CLOUDIFY_COSMO = 'cloudify-cosmo'
 PUBLIC_REPOS = 'public_repos'
 TOTAL_PRIVATE_REPOS = 'total_private_repos'
+REPOS_PER_PAGE = 100
 USERNAME = 'AviaE'
 PASSWORD = 'A1b2Y8z9'
 os.environ['GITHUB_USER'] = 'AviaE'  # remove this later
@@ -41,6 +42,7 @@ class GitHubObject(object):
 
     def __lt__(self, other):
         return self.name < other.name
+
 
 class Repo(GitHubObject):
 
@@ -236,11 +238,9 @@ class BranchQuery(BranchQueryAbstract):
 
     def get_num_of_repos(self):
 
-        org_name = self.config.org_name
-
         full_address = os.path.join(GITHUB_API_URL,
                                     ORGS,
-                                    org_name)
+                                    self.config.org_name)
         r = requests.get(full_address,
                          auth=(os.environ[GITHUB_USER],
                                os.environ[GITHUB_PASS]))
@@ -248,8 +248,11 @@ class BranchQuery(BranchQueryAbstract):
 
         return dr[PUBLIC_REPOS] + dr[TOTAL_PRIVATE_REPOS]
 
-    def get_repo(self, repo_num):
-        pagination_parameters = '?page={0}&per_page=1'.format(repo_num)
+    def get_json_repos(self, page_number):
+
+        pagination_parameters = '?page={0}&per_page={1}'\
+            .format(page_number, REPOS_PER_PAGE)
+
         full_address = os.path.join(GITHUB_API_URL,
                                     ORGS,
                                     self.config.org_name,
@@ -259,22 +262,27 @@ class BranchQuery(BranchQueryAbstract):
                                 auth=(os.environ[GITHUB_USER],
                                       os.environ[GITHUB_PASS])
                                 )
+        return json.loads(response.text)
 
-        repo_dict = json.loads(response.text)
-        repo = Repo(repo_dict[0]['name'])
-        return repo
+    def parse_json_repo(self, json_repo):
+        return Repo(json_repo['name'])
 
     def get_repos(self):
+
         self.performance.repos_start = time.time()
 
         num_of_repos = self.get_num_of_repos()
-        num_of_threads = self.determine_number_of_threads(num_of_repos)
+        num_of_threads = \
+            self.determine_number_of_threads(num_of_repos / 100 + 1)
 
         pool = ThreadPool(num_of_threads)
-        repos = pool.map(self.get_repo, range(1, num_of_threads+1))
+        json_repos = pool.map(self.get_json_repos, range(1, num_of_threads+1))
+        repos = []
+        for list_of_json_repos in json_repos:
+            for json_repo in list_of_json_repos:
+                repos.append(self.parse_json_repo(json_repo))
 
         self.performance.repos_end = time.time()
-
         return repos
 
     def get_json_branches(self, repo_name, org_name=CLOUDIFY_COSMO):
