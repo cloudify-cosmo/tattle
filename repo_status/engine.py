@@ -1,5 +1,9 @@
 import argparse
-from repo_status import model
+from repo_status.model import USE_CACHE_MODE
+from repo_status.model import UP_TO_DATE_MODE
+from repo_status.model import BranchQueryCfy
+from repo_status.model import BranchQuerySurplus
+from repo_status.model import QueryConfig
 import os
 import sys
 import tempfile
@@ -30,16 +34,13 @@ SURPLUS_BRANCHES_PARSE_NAME = 'surplus_branches'
 CFY_BRANCHES_PARSE_NAME = 'cfy_branches'
 CACHE_PATH_PARSE_NAME = 'cache_path'
 
-USE_CACHE_MODE = 'use-cache'
-UP_TO_DATE_MODE = 'up-to-date'
-
 CACHE_DOESNT_EXIST = 'The cache path you specified doesn\'t exist, ' \
                      'or it doesn\'t contain the required cache files.'
 CACHE_PATH_INVALID = 'The cache path you supplied is illegal or restricted.'
 
 RESOURCES_FOLDER_PATH = \
     os.path.join(tempfile.gettempdir(),
-                 '.cloudify-repo-status/resources/')
+                 'cloudify-repo-status/resources/')
 
 
 def parse_arguments():
@@ -74,7 +75,7 @@ def parse_arguments():
 
     parser.add_argument('-t', MAX_THREADS_COMMAND_NAME,
                         type=int,
-                        default=model.QueryConfig.NO_THREAD_LIMIT,
+                        default=QueryConfig.NO_THREAD_LIMIT,
                         help=_MAX_THREADS_HELP_TEXT)
 
     args = parser.parse_args()
@@ -85,9 +86,9 @@ def parse_arguments():
 
 def determine_if_cache_exists(command_name, user_resource_path):
 
-    filename = model.BranchQuerySurplus.FILENAME \
+    filename = BranchQuerySurplus.FILENAME \
         if command_name == SURPLUS_BRANCHES_PARSE_NAME \
-        else model.BranchQueryCfy.FILENAME
+        else BranchQueryCfy.FILENAME
     filepath = os.path.join(user_resource_path, filename)
 
     if not os.path.isdir(user_resource_path) or not os.path.isfile(filepath):
@@ -138,39 +139,34 @@ def enforce_caching_with_query(parser, args, cache_action):
                      .format(' or '.join(cache_action.option_strings)))
 
 
-def process_command(mode, query):
-
-    query.performance.start = time.time()
-
-    if mode == UP_TO_DATE_MODE:
-        branches = query.get_org_branches()
-        query_branches = query.filter_branches(branches)
-        query.add_committers_and_dates(query_branches)
-        query.update_cache(query_branches)
-
-    else:
-        query_branches = query.load_branches()
-
-    query.output(query_branches)
-
-    query.performance.end = time.time()
-    query.print_performance()
-
-
 def main():
 
     args, parser = parse_arguments()
     resources_path = determine_resources_path(args)
-    query_config = model.QueryConfig(resources_path, args.max_threads)
 
-    if args.surplus_branches:
-        process_command(args.surplus_branches,
-                        model.BranchQuerySurplus(query_config))
-    elif args.cfy_branches:
-        process_command(args.cfy_branches,
-                        model.BranchQueryCfy(query_config))
+    if args.surplus_branches is not None:
+
+        mode = args.surplus_branches,
+        filename = BranchQuerySurplus.FILENAME
+        query = BranchQuerySurplus()
+
+    elif args.cfy_branches is not None:
+
+        mode = args.cfy_branches
+        filename = BranchQueryCfy.FILENAME
+        query = BranchQueryCfy()
+
     else:
         parser.print_usage(file=None)
+        sys.exit()
+
+    query.config = QueryConfig(resources_path,
+                               mode,
+                               filename,
+                               max_threads=args.max_threads,
+                               )
+    query.process()
+
 
 if __name__ == '__main__':
     main()

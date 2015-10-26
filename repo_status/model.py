@@ -8,6 +8,9 @@ import time
 
 from multiprocessing.dummy import Pool as ThreadPool
 
+USE_CACHE_MODE = 'use-cache'
+UP_TO_DATE_MODE = 'up-to-date'
+
 BRANCHES = 'branches'
 REPOS = 'repos'
 ORGS = 'orgs'
@@ -113,18 +116,20 @@ class Issue(object):
 
 
 class QueryConfig(object):
-
     NO_THREAD_LIMIT = -1
 
     def __init__(self,
                  resources_path,
+                 mode,
+                 filename,
                  max_threads=NO_THREAD_LIMIT,
                  org_name=CLOUDIFY_COSMO):
 
         self.resources_path = resources_path
-        self.filename = ''
-        self.org_name = org_name
+        self.mode = mode
+        self.filename = filename
         self.max_threads = max_threads
+        self.org_name = org_name
 
     def get_cache_path(self):
 
@@ -188,12 +193,30 @@ class BranchQuery(BranchQueryAbstract):
         'getting detailed branch info: {0}ms'
     TOTAL_PERFORMANCE_TEMPLATE = 'total time: {0}ms'
 
+    def __init__(self, query_config=None):
+        self.config = query_config
+        self.performance = QueryPerformance()
+
     def filter_branches(self, branches):
         pass
 
-    def __init__(self, query_config):
-        self.config = query_config
-        self.performance = QueryPerformance()
+    def process(self):
+        self.performance.start = time.time()
+
+        if self.config.mode == UP_TO_DATE_MODE:
+            repos = self.get_repos()
+            branches = self.get_org_branches(repos)
+            query_branches = self.filter_branches(branches)
+            self.add_committers_and_dates(query_branches)
+            self.update_cache(query_branches)
+
+        else:
+            query_branches = self.load_branches()
+
+        self.output(query_branches)
+
+        self.performance.end = time.time()
+        self.print_performance()
 
     def update_cache(self, query_branches):
         self.store_branches(query_branches)
@@ -285,36 +308,33 @@ class BranchQuery(BranchQueryAbstract):
         self.performance.repos_end = time.time()
         return repos
 
-    def get_json_branches(self, repo_name, org_name=CLOUDIFY_COSMO):
+    def get_json_branches(self, repo_name):
 
         full_address = os.path.join(GITHUB_API_URL,
                                     REPOS,
-                                    org_name,
+                                    self.config.org_name,
                                     repo_name,
                                     BRANCHES)
         r = requests.get(full_address,
                          auth=(os.environ[GITHUB_USER],
                                os.environ[GITHUB_PASS])
                          )
-        return r.text
+        return json.loads(r.text)
 
     def parse_json_branches(self, json_branches, repo_object):
-        detailed_list_of_branches = json.loads(json_branches)
         list_of_branch_objects = [Branch(db['name'], repo_object)
-                                  for db in detailed_list_of_branches]
+                                  for db in json_branches]
 
         return list_of_branch_objects
 
-    def get_branches(self, repo_object, org_name=CLOUDIFY_COSMO):
+    def get_branches(self, repo_object):
 
-        json_branches = self.get_json_branches(repo_object.name, org_name)
+        json_branches = self.get_json_branches(repo_object.name)
         branch_list = self.parse_json_branches(json_branches, repo_object)
 
         return sorted(branch_list)
 
-    def get_org_branches(self):
-
-        repos = self.get_repos()
+    def get_org_branches(self, repos):
 
         self.performance.basic_branches_start = time.time()
         num_of_threads = self.determine_number_of_threads(len(repos))
@@ -426,9 +446,8 @@ class BranchQuerySurplus(BranchQuery):
     DESCRIPTION = 'list all the surplus branches'
     FILENAME = 'surplus_branches.json'
 
-    def __init__(self, query_config):
+    def __init__(self, query_config=None):
         super(BranchQuerySurplus, self).__init__(query_config)
-        self.config.filename = BranchQuerySurplus.FILENAME
 
     def filter_branches(self, branches):
         return filter(BranchQuerySurplus.name_filter, branches)
@@ -459,9 +478,8 @@ class BranchQueryCfy(BranchQuery):
                   '\'Closed\' or \'Resolved\''
     FILENAME = 'cfy_branches.json'
 
-    def __init__(self, query_config):
+    def __init__(self, query_config=None):
         super(BranchQueryCfy, self).__init__(query_config)
-        self.config.filename = BranchQueryCfy.FILENAME
 
     @staticmethod
     def name_filter(branch):
