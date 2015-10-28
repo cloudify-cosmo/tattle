@@ -183,18 +183,23 @@ class QueryPerformance(object):
         self.detailed_branches_end = 0.0
         self.end = 0.0
 
+    @property
     def total(self):
         return (self.end - self.start) * 1000
 
+    @property
     def repos(self):
         return (self.repos_end - self.repos_start) * 1000
 
+    @property
     def basic_branches(self):
         return (self.basic_branches_end - self.basic_branches_start) * 1000
 
+    @property
     def issues(self):
         return (self.issues_end - self.issues_start) * 1000
 
+    @property
     def detailed_branches(self):
         return (self.detailed_branches_end
                 - self.detailed_branches_start) * 1000
@@ -274,15 +279,15 @@ class BranchQuery(BranchQueryAbstract):
         print self.ACTION_PERFORMANCE_TEMPLATE\
             .format(self.DESCRIPTION)
         print self.REPOS_PERFORMANCE_TEMPLATE\
-            .format(self.performance.repos())
+            .format(self.performance.repos)
         print self.BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE\
-            .format(self.performance.basic_branches())
+            .format(self.performance.basic_branches)
         print self.ISSUES_PERFORMANCE_TEMPLATE\
-            .format(self.performance.issues())
+            .format(self.performance.issues)
         print self.DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE\
-            .format(self.performance.detailed_branches())
+            .format(self.performance.detailed_branches)
         print self.TOTAL_PERFORMANCE_TEMPLATE\
-            .format(self.performance.total())
+            .format(self.performance.total)
 
     def determine_number_of_threads(self, number_of_calls):
         max_number_of_threads = self.config.max_threads
