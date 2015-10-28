@@ -133,42 +133,55 @@ class QueryConfig(object):
         self.cache_path = os.path.join(resources_path, filename)
 
 # for QueryPerformance time-related attributes
-class PerformanceTime:
+class PerformanceTime(object):
 
-    def __init__(self, value):
-        self.value = value
+    def __init__(self, name):
+        self.name = name
 
     def __get__(self, instance, cls):
         if instance is None:
             return self
         else:
-            return instance.__dict__[self.value]
+            return instance.__dict__[self.name]
 
     def __set__(self, instance, value):
 
         if not isinstance(value, type(time.time())):
-            raise TypeError('Expected an float') # or time.time()-ish object?
+            raise TypeError('Expected an float')  # or time.time()-ish object?
 
         if value < 0:
             raise ValueError('Expected a non-negative value')
 
-        instance.__dict__[self.value] = value
+        instance.__dict__[self.name] = value
+
+    def __sub__(self, other):
+        return self - other
 
 
 class QueryPerformance(object):
 
-    def __init__(self):
+    start = PerformanceTime('start')
+    repos_start = PerformanceTime('repos_start')
+    repos_end = PerformanceTime('repos_end')
+    basic_branches_start = PerformanceTime('basic_branches_start')
+    basic_branches_end = PerformanceTime('basic_branches_end')
+    issues_start = PerformanceTime('issues_start')
+    issues_end = PerformanceTime('issues_end')
+    detailed_branches_start = PerformanceTime('detailed_branches_start')
+    detailed_branches_end = PerformanceTime('detailed_branches_end')
+    end = PerformanceTime('end')
 
-        self.start = 0
-        self.repos_start = 0
-        self.repos_end = 0
-        self.basic_branches_start = 0
-        self.basic_branches_end = 0
-        self.issues_start = 0
-        self.issues_end = 0
-        self.detailed_branches_start = 0
-        self.detailed_branches_end = 0
-        self.end = 0
+    def __init__(self):
+        self.start = 0.0
+        self.repos_start = 0.0
+        self.repos_end = 0.0
+        self.basic_branches_start = 0.0
+        self.basic_branches_end = 0.0
+        self.issues_start = 0.0
+        self.issues_end = 0.0
+        self.detailed_branches_start = 0.0
+        self.detailed_branches_end = 0.0
+        self.end = 0.0
 
     def total(self):
         return (self.end - self.start) * 1000
@@ -312,6 +325,9 @@ class BranchQuery(BranchQueryAbstract):
     def get_repos(self):
 
         self.performance.repos_start = time.time()
+        # self.performance.repos_start = 's'
+        # self.performance.repos_start = 1
+        # self.performance.repos_start = -1.0
 
         num_of_repos = self.get_num_of_repos()
         num_of_threads = \
@@ -365,7 +381,7 @@ class BranchQuery(BranchQueryAbstract):
 
     def load_branches(self):
 
-        json_filepath = self.config.get_cache_path()
+        json_filepath = self.config.cache_path
         branches = []
         with open(json_filepath, 'r') as branches_file:
             json_branches = json.load(branches_file)
@@ -388,7 +404,7 @@ class BranchQuery(BranchQueryAbstract):
         return branches
 
     def store_branches(self, branches):
-        cache_path = self.config.get_cache_path()
+        cache_path = self.config.cache_path
         base_dict = dict()
         base_dict[BRANCHES] = branches
 
