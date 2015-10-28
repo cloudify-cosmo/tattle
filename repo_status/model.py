@@ -2,6 +2,7 @@ import abc
 import itertools
 import json
 import os
+import posixpath
 import re
 import requests
 import time
@@ -295,7 +296,7 @@ class BranchQuery(BranchQueryAbstract):
 
     def get_num_of_repos(self):
 
-        url = os.path.join(GITHUB_API_URL,
+        url = posixpath.join(GITHUB_API_URL,
                                     ORGS,
                                     self.config.org_name)
         r = requests.get(url,
@@ -310,7 +311,7 @@ class BranchQuery(BranchQueryAbstract):
         pagination_parameters = '?page={0}&per_page={1}'\
             .format(page_number, REPOS_PER_PAGE)
 
-        url = os.path.join(GITHUB_API_URL,
+        url = posixpath.join(GITHUB_API_URL,
                                     ORGS,
                                     self.config.org_name,
                                     REPOS + pagination_parameters,
@@ -342,7 +343,7 @@ class BranchQuery(BranchQueryAbstract):
 
     def get_json_branches(self, repo_name):
 
-        url = os.path.join(GITHUB_API_URL,
+        url = posixpath.join(GITHUB_API_URL,
                                     REPOS,
                                     self.config.org_name,
                                     repo_name,
@@ -428,7 +429,7 @@ class BranchQuery(BranchQueryAbstract):
         return issue
 
     def add_commiter_and_date(self, branch):
-        url = os.path.join(GITHUB_API_URL,
+        url = posixpath.join(GITHUB_API_URL,
                            REPOS,
                            self.config.org_name,
                            branch.containing_repo.name,
