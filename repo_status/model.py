@@ -130,10 +130,29 @@ class QueryConfig(object):
         self.filename = filename
         self.max_threads = max_threads
         self.org_name = org_name
+        self.cache_path = os.path.join(resources_path, filename)
 
-    def get_cache_path(self):
+# for QueryPerformance time-related attributes
+class PerformanceTime:
 
-        return os.path.join(self.resources_path, self.filename)
+    def __init__(self, value):
+        self.value = value
+
+    def __get__(self, instance, cls):
+        if instance is None:
+            return self
+        else:
+            return instance.__dict__[self.value]
+
+    def __set__(self, instance, value):
+
+        if not isinstance(value, type(time.time())):
+            raise TypeError('Expected an float') # or time.time()-ish object?
+
+        if value < 0:
+            raise ValueError('Expected a non-negative value')
+
+        instance.__dict__[self.value] = value
 
 
 class QueryPerformance(object):
