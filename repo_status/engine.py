@@ -7,7 +7,6 @@ from repo_status.model import QueryConfig
 import os
 import sys
 import tempfile
-import time
 
 _ARGUMENT_PARSER_DESCRIPTION = \
     ('Get in-depth information about the status '

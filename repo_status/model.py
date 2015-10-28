@@ -132,6 +132,7 @@ class QueryConfig(object):
         self.org_name = org_name
         self.cache_path = os.path.join(resources_path, filename)
 
+
 # for QueryPerformance time-related attributes
 class PerformanceTime(object):
 
@@ -153,9 +154,6 @@ class PerformanceTime(object):
             raise ValueError('Expected a non-negative value')
 
         instance.__dict__[self.name] = value
-
-    def __sub__(self, other):
-        return self - other
 
 
 class QueryPerformance(object):
@@ -239,7 +237,6 @@ class BranchQuery(BranchQueryAbstract):
 
     def process(self):
         self.performance.start = time.time()
-
         if self.config.mode == UP_TO_DATE_MODE:
             repos = self.get_repos()
             branches = self.get_org_branches(repos)
@@ -298,10 +295,10 @@ class BranchQuery(BranchQueryAbstract):
 
     def get_num_of_repos(self):
 
-        full_address = os.path.join(GITHUB_API_URL,
+        url = os.path.join(GITHUB_API_URL,
                                     ORGS,
                                     self.config.org_name)
-        r = requests.get(full_address,
+        r = requests.get(url,
                          auth=(os.environ[GITHUB_USER],
                                os.environ[GITHUB_PASS]))
         dr = json.loads(r.text)
@@ -313,15 +310,13 @@ class BranchQuery(BranchQueryAbstract):
         pagination_parameters = '?page={0}&per_page={1}'\
             .format(page_number, REPOS_PER_PAGE)
 
-        full_address = os.path.join(GITHUB_API_URL,
+        url = os.path.join(GITHUB_API_URL,
                                     ORGS,
                                     self.config.org_name,
                                     REPOS + pagination_parameters,
                                     )
-        response = requests.get(full_address,
-                                auth=(os.environ[GITHUB_USER],
-                                      os.environ[GITHUB_PASS])
-                                )
+        response = requests.get(url, auth=(os.environ[GITHUB_USER],
+                                           os.environ[GITHUB_PASS]))
         return json.loads(response.text)
 
     def parse_json_repo(self, json_repo):
@@ -330,9 +325,6 @@ class BranchQuery(BranchQueryAbstract):
     def get_repos(self):
 
         self.performance.repos_start = time.time()
-        # self.performance.repos_start = 's'
-        # self.performance.repos_start = 1
-        # self.performance.repos_start = -1.0
 
         num_of_repos = self.get_num_of_repos()
         num_of_threads = \
@@ -350,15 +342,13 @@ class BranchQuery(BranchQueryAbstract):
 
     def get_json_branches(self, repo_name):
 
-        full_address = os.path.join(GITHUB_API_URL,
+        url = os.path.join(GITHUB_API_URL,
                                     REPOS,
                                     self.config.org_name,
                                     repo_name,
                                     BRANCHES)
-        r = requests.get(full_address,
-                         auth=(os.environ[GITHUB_USER],
-                               os.environ[GITHUB_PASS])
-                         )
+        r = requests.get(url, auth=(os.environ[GITHUB_USER],
+                                    os.environ[GITHUB_PASS]))
         return json.loads(r.text)
 
     def parse_json_branches(self, json_branches, repo_object):
