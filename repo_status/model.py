@@ -159,6 +159,18 @@ class PerformanceTime(object):
 
 class QueryPerformance(object):
 
+    ACTION_PERFORMANCE_TEMPLATE = \
+        '\naction:\n{0}\n'
+    REPOS_PERFORMANCE_TEMPLATE = \
+        'getting the repos: {0}ms'
+    BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE = \
+        'getting basic branch info: {0}ms'
+    ISSUES_PERFORMANCE_TEMPLATE = \
+        'getting the issues: {0}ms'
+    DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE = \
+        'getting detailed branch info: {0}ms'
+    TOTAL_PERFORMANCE_TEMPLATE = 'total time: {0}ms'
+
     start = PerformanceTime('start')
     repos_start = PerformanceTime('repos_start')
     repos_end = PerformanceTime('repos_end')
@@ -204,7 +216,7 @@ class QueryPerformance(object):
                 - self.detailed_branches_start) * 1000
 
 
-class BranchQueryAbstract(object):
+class BranchQuery(object):
 
     __metaclass__ = abc.ABCMeta
 
@@ -212,29 +224,11 @@ class BranchQueryAbstract(object):
     def filter_branches(self, branches):
         pass
 
-
-class BranchQuery(BranchQueryAbstract):
-
     DESCRIPTION = None
-
-    ACTION_PERFORMANCE_TEMPLATE = \
-        '\naction:\n{0}\n'
-    REPOS_PERFORMANCE_TEMPLATE = \
-        'getting the repos: {0}ms'
-    BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE = \
-        'getting basic branch info: {0}ms'
-    ISSUES_PERFORMANCE_TEMPLATE = \
-        'getting the issues: {0}ms'
-    DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE = \
-        'getting detailed branch info: {0}ms'
-    TOTAL_PERFORMANCE_TEMPLATE = 'total time: {0}ms'
 
     def __init__(self, query_config=None):
         self.config = query_config
         self.performance = QueryPerformance()
-
-    def filter_branches(self, branches):
-        pass
 
     def process(self):
         self.performance.start = time.time()
@@ -274,17 +268,17 @@ class BranchQuery(BranchQueryAbstract):
 
     def print_performance(self):
 
-        print self.ACTION_PERFORMANCE_TEMPLATE\
+        print QueryPerformance.ACTION_PERFORMANCE_TEMPLATE\
             .format(self.DESCRIPTION)
-        print self.REPOS_PERFORMANCE_TEMPLATE\
+        print QueryPerformance.REPOS_PERFORMANCE_TEMPLATE\
             .format(self.performance.repos)
-        print self.BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE\
+        print QueryPerformance.BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE\
             .format(self.performance.basic_branches)
-        print self.ISSUES_PERFORMANCE_TEMPLATE\
+        print QueryPerformance.ISSUES_PERFORMANCE_TEMPLATE\
             .format(self.performance.issues)
-        print self.DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE\
+        print QueryPerformance.DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE\
             .format(self.performance.detailed_branches)
-        print self.TOTAL_PERFORMANCE_TEMPLATE\
+        print QueryPerformance.TOTAL_PERFORMANCE_TEMPLATE\
             .format(self.performance.total)
 
     def determine_number_of_threads(self, number_of_calls):
@@ -297,8 +291,9 @@ class BranchQuery(BranchQueryAbstract):
     def get_num_of_repos(self):
 
         url = posixpath.join(GITHUB_API_URL,
-                                    ORGS,
-                                    self.config.org_name)
+                             ORGS,
+                             self.config.org_name
+                             )
         r = requests.get(url,
                          auth=(os.environ[GITHUB_USER],
                                os.environ[GITHUB_PASS]))
@@ -312,10 +307,10 @@ class BranchQuery(BranchQueryAbstract):
             .format(page_number, REPOS_PER_PAGE)
 
         url = posixpath.join(GITHUB_API_URL,
-                                    ORGS,
-                                    self.config.org_name,
-                                    REPOS + pagination_parameters,
-                                    )
+                             ORGS,
+                             self.config.org_name,
+                             REPOS + pagination_parameters,
+                             )
         response = requests.get(url, auth=(os.environ[GITHUB_USER],
                                            os.environ[GITHUB_PASS]))
         return json.loads(response.text)
@@ -344,10 +339,11 @@ class BranchQuery(BranchQueryAbstract):
     def get_json_branches(self, repo_name):
 
         url = posixpath.join(GITHUB_API_URL,
-                                    REPOS,
-                                    self.config.org_name,
-                                    repo_name,
-                                    BRANCHES)
+                             REPOS,
+                             self.config.org_name,
+                             repo_name,
+                             BRANCHES
+                             )
         r = requests.get(url, auth=(os.environ[GITHUB_USER],
                                     os.environ[GITHUB_PASS]))
         return json.loads(r.text)
@@ -430,12 +426,12 @@ class BranchQuery(BranchQueryAbstract):
 
     def add_commiter_and_date(self, branch):
         url = posixpath.join(GITHUB_API_URL,
-                           REPOS,
-                           self.config.org_name,
-                           branch.containing_repo.name,
-                           BRANCHES,
-                           branch.name
-                           )
+                             REPOS,
+                             self.config.org_name,
+                             branch.containing_repo.name,
+                             BRANCHES,
+                             branch.name
+                             )
         s = requests.get(url, auth=(os.environ[GITHUB_USER],
                                     os.environ[GITHUB_PASS])).text
         json_details = json.loads(s)
