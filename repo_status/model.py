@@ -581,14 +581,14 @@ class BranchQueryCfy(BranchQuery):
         json_issue = requests.get(Issue.JIRA_API_URL +
                                   key +
                                   '?fields=status')
-        return json_issue.text
+        return json.loads(json_issue.text)
 
     def parse_json_issue(self, json_issue):
         if json_issue is None:  # because of CFY-GIVEAWAY
             return json_issue
-        detailed_issue = json.loads(json_issue)
-        issue = Issue(detailed_issue['key'],
-                      detailed_issue['fields']['status']['name'])
+
+        issue = Issue(json_issue['key'],
+                      json_issue['fields']['status']['name'])
         return issue
 
     def get_issue(self, key):
@@ -690,18 +690,17 @@ class TagQuery(Query):
 # from contextlib import contextmanager
 
 # @contextmanager
-# def timed(query):
-#     query.performance.repos_start = time.time()
+# def timed(delta):
+#     delta.start = time.time()
 #     yield
-#     query.performance.repos_end = time.time()
+#     delta.end = time.time()
 
-#       ######################
+#     ########################
 
-#     if self.config.mode == UP_TO_DATE_MODE:
-#
-#         with timed(self):
+#         with timed(self.peformance.repos_delta):
 #             repos = self.get_repos()
 #         branches = self.get_org_branches(repos)
-#         query_branches = self.filter_branches(branches)
+#         query_branches = self.filter_items(branches)
 #         self.add_committers_and_dates(query_branches)
-#         self.update_cache(query_branches)
+#
+#         return query_branches
