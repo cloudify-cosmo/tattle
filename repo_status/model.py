@@ -7,16 +7,18 @@ import re
 import requests
 import time
 
+
 from multiprocessing.dummy import Pool as ThreadPool
 
 USE_CACHE_MODE = 'use-cache'
 UP_TO_DATE_MODE = 'up-to-date'
 
 BRANCHES = 'branches'
+REPO = 'repo'
 REPOS = 'repos'
 ORGS = 'orgs'
-
-CONTAINING_REPO = 'containing_repo'
+TAGS = 'tags'
+JIRA_ISSUE = 'jira_issue'
 
 GITHUB_API_URL = 'https://api.github.com/'
 CLOUDIFY_COSMO = 'cloudify-cosmo'
@@ -64,20 +66,53 @@ class Branch(GitHubObject):
 
     def __init__(self,
                  name,
-                 containing_repo,
+                 repo,
                  jira_issue=None,
                  committer_email=''
                  ):
         super(Branch, self).__init__(name)
-        self.containing_repo = containing_repo
+        self.repo = repo
         self.jira_issue = jira_issue
         self.committer_email = committer_email
+
+    @classmethod
+    def from_json(cls, json_branch):
+
+        repo = None if json_branch[REPO] is None \
+            else Repo(json_branch[REPO]['name'])
+
+        jira_issue = None if json_branch[JIRA_ISSUE] is None \
+            else Issue(json_branch[JIRA_ISSUE]['key'],
+                       json_branch[JIRA_ISSUE]['status'])
+        last_committer = json_branch['committer_email']
+
+        return cls(json_branch['name'],
+                   repo,
+                   jira_issue=jira_issue,
+                   committer_email=last_committer
+                   )
 
     def __str__(self):
         issue = '' if self.jira_issue is None else str(self.jira_issue)
 
         return 'Branch name: {0}\n{1}Last committer: {2}\n'. \
             format(self.name, issue, self.committer_email.encode('utf-8'))
+
+class Tag(GitHubObject):
+
+    def __init__(self, name, repo):
+        super(Tag, self).__init__(name)
+        self.repo = repo
+
+    @classmethod
+    def from_json(cls, json_tag):
+        return cls(json_tag['name'], Repo(json_tag['repo']))
+
+    def __str__(self):
+        return 'Tag: {0}'.format(self.name)
+
+    def __repr__(self):
+        return 'Tag(name={0})'.format(self.name)
 
 
 class Issue(object):
@@ -134,7 +169,7 @@ class QueryConfig(object):
         self.cache_path = os.path.join(resources_path, filename)
 
 
-# for QueryPerformance time-related attributes
+# for xQueryPerformance time-related attributes
 class PerformanceTime(object):
 
     def __init__(self, name):
@@ -159,40 +194,22 @@ class PerformanceTime(object):
 
 class QueryPerformance(object):
 
-    ACTION_PERFORMANCE_TEMPLATE = \
-        '\naction:\n{0}\n'
-    REPOS_PERFORMANCE_TEMPLATE = \
-        'getting the repos: {0}ms'
-    BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE = \
-        'getting basic branch info: {0}ms'
-    ISSUES_PERFORMANCE_TEMPLATE = \
-        'getting the issues: {0}ms'
-    DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE = \
-        'getting detailed branch info: {0}ms'
+    ACTION_PERFORMANCE_TEMPLATE = '\naction:\n{0}\n'
     TOTAL_PERFORMANCE_TEMPLATE = 'total time: {0}ms'
+    REPOS_PERFORMANCE_TEMPLATE = 'getting the repos: {0}ms'
 
     start = PerformanceTime('start')
+    end = PerformanceTime('end')
     repos_start = PerformanceTime('repos_start')
     repos_end = PerformanceTime('repos_end')
-    basic_branches_start = PerformanceTime('basic_branches_start')
-    basic_branches_end = PerformanceTime('basic_branches_end')
-    issues_start = PerformanceTime('issues_start')
-    issues_end = PerformanceTime('issues_end')
-    detailed_branches_start = PerformanceTime('detailed_branches_start')
-    detailed_branches_end = PerformanceTime('detailed_branches_end')
-    end = PerformanceTime('end')
 
     def __init__(self):
         self.start = 0.0
+        self.end = 0.0
         self.repos_start = 0.0
         self.repos_end = 0.0
-        self.basic_branches_start = 0.0
-        self.basic_branches_end = 0.0
-        self.issues_start = 0.0
-        self.issues_end = 0.0
-        self.detailed_branches_start = 0.0
-        self.detailed_branches_end = 0.0
-        self.end = 0.0
+        self.tags_start = 0.0
+        self.tags_end = 0.0
 
     @property
     def total(self):
@@ -202,84 +219,87 @@ class QueryPerformance(object):
     def repos(self):
         return (self.repos_end - self.repos_start) * 1000
 
+
+class BranchQueryPerformance(QueryPerformance):
+
+    BASIC_BRANCHES_PERFORMANCE_TEMPLATE = 'getting basic branch info: {0}ms'
+    DETAILED_BRANCHES_PERFORMANCE_TEMPLATE = \
+        'getting detailed branch info: {0}ms'
+
+    basic_branches_start = PerformanceTime('basic_branches_start')
+    basic_branches_end = PerformanceTime('basic_branches_end')
+    detailed_branches_start = PerformanceTime('detailed_branches_start')
+    detailed_branches_end = PerformanceTime('detailed_branches_end')
+
+    def __init__(self):
+        super(BranchQueryPerformance, self).__init__()
+        self.basic_branches_start = 0.0
+        self.basic_branches_end = 0.0
+        self.detailed_branches_start = 0.0
+        self.detailed_branches_end = 0.0
+
     @property
     def basic_branches(self):
         return (self.basic_branches_end - self.basic_branches_start) * 1000
 
     @property
+    def detailed_branches(self):
+        return (self.detailed_branches_end -
+                self.detailed_branches_start) * 1000
+
+class BranchQueryCfyPerformance(BranchQueryPerformance):
+
+    ISSUES_PERFORMANCE_TEMPLATE = 'getting the issues: {0}ms'
+
+    issues_start = PerformanceTime('issues_start')
+    issues_end = PerformanceTime('issues_end')
+
+    def __init__(self):
+        super(BranchQueryCfyPerformance, self).__init__()
+        self.issues_start = 0.0
+        self.issues_end = 0.0
+
+    @property
     def issues(self):
         return (self.issues_end - self.issues_start) * 1000
 
+
+class TagQueryPerformance(QueryPerformance):
+
+    TAGS_PERFORMANCE_TEMPLATE = 'getting the tags: {0}ms'
+
+    tags_start = PerformanceTime('tags_start')
+    tags_end = PerformanceTime('tags_end')
+
+    def __init__(self):
+        super(TagQueryPerformance, self).__init__()
+        self.tags_start = 0.0
+        self.tags_end = 0.0
+
     @property
-    def detailed_branches(self):
-        return (self.detailed_branches_end
-                - self.detailed_branches_start) * 1000
+    def tags(self):
+        return (self.tags_end - self.tags_start) * 1000
 
 
-class BranchQuery(object):
+class Query(object):
 
     __metaclass__ = abc.ABCMeta
 
+    DESCRIPTION = None
+
     @abc.abstractmethod
-    def filter_branches(self, branches):
+    def filter_items(self, branches):
         pass
 
-    DESCRIPTION = None
+    @abc.abstractmethod
+    def query(self):
+        pass
 
     def __init__(self, query_config=None):
         self.config = query_config
+        self.data_type = None
         self.performance = QueryPerformance()
-
-    def process(self):
-        self.performance.start = time.time()
-        if self.config.mode == UP_TO_DATE_MODE:
-            repos = self.get_repos()
-            branches = self.get_org_branches(repos)
-            query_branches = self.filter_branches(branches)
-            self.add_committers_and_dates(query_branches)
-            self.update_cache(query_branches)
-
-        else:
-            query_branches = self.load_branches()
-
-        self.output(query_branches)
-
-        self.performance.end = time.time()
-        self.print_performance()
-
-    def update_cache(self, query_branches):
-        self.store_branches(query_branches)
-
-    def output(self, branches):
-
-        cur_repo_name = None
-
-        for b in branches:
-            running_repo_name = b.containing_repo.name
-            if cur_repo_name != running_repo_name:
-                if cur_repo_name is not None:
-                    print ''
-                cur_repo_name = running_repo_name
-                print '*' * (len(str(b.containing_repo)))
-                print str(b.containing_repo)
-                print '*' * (len(str(b.containing_repo)))
-
-            print b
-
-    def print_performance(self):
-
-        print QueryPerformance.ACTION_PERFORMANCE_TEMPLATE\
-            .format(self.DESCRIPTION)
-        print QueryPerformance.REPOS_PERFORMANCE_TEMPLATE\
-            .format(self.performance.repos)
-        print QueryPerformance.BASIC_BRANCH_INFO_PERFORMANCE_TEMPLATE\
-            .format(self.performance.basic_branches)
-        print QueryPerformance.ISSUES_PERFORMANCE_TEMPLATE\
-            .format(self.performance.issues)
-        print QueryPerformance.DETAILED_BRANCH_INFO_PERFORMANCE_TEMPLATE\
-            .format(self.performance.detailed_branches)
-        print QueryPerformance.TOTAL_PERFORMANCE_TEMPLATE\
-            .format(self.performance.total)
+        self.result = None
 
     def determine_number_of_threads(self, number_of_calls):
         max_number_of_threads = self.config.max_threads
@@ -287,6 +307,66 @@ class BranchQuery(object):
             return number_of_calls
         else:
             return min(number_of_calls, max_number_of_threads)
+
+    def process(self):
+        self.performance.start = time.time()
+
+        if self.config.mode == UP_TO_DATE_MODE:
+
+            self.result = self.query()
+            self.store()
+
+        elif self.config.mode == USE_CACHE_MODE:
+
+            self.result = self.load_from_cache()
+
+        self.output()
+
+        self.performance.end = time.time()
+        self.print_performance()
+
+    def store(self):
+
+        with open(self.config.cache_path, 'w') as cache_file:
+            json.dump(self.result, cache_file, default=lambda x: x.__dict__)
+
+    def load_from_cache(self):
+
+        items = []
+        with open(self.config.cache_path, 'r') as cache_file:
+            json_items = json.load(cache_file)
+            for json_item in json_items:
+
+                item = self.data_type.from_json(json_item)
+                items.append(item)
+        return items
+
+    def output(self):
+
+        cur_repo_name = None
+
+        for item in self.result:
+            running_repo_name = item.repo.name
+            if cur_repo_name != running_repo_name:
+                if cur_repo_name is not None:
+                    print ''
+                cur_repo_name = running_repo_name
+                print '*' * (len(str(item.repo)))
+                print str(item.repo)
+                print '*' * (len(str(item.repo)))
+
+            print item
+
+    def print_performance(self):
+
+        print self.performance.ACTION_PERFORMANCE_TEMPLATE \
+            .format(self.DESCRIPTION)
+        print self.performance.TOTAL_PERFORMANCE_TEMPLATE \
+            .format(self.performance.total)
+        print ('-' * len(self.performance.TOTAL_PERFORMANCE_TEMPLATE
+                         .format(self.performance.total)))
+        print self.performance.REPOS_PERFORMANCE_TEMPLATE \
+            .format(self.performance.repos)
 
     def get_num_of_repos(self):
 
@@ -297,13 +377,13 @@ class BranchQuery(object):
         r = requests.get(url,
                          auth=(os.environ[GITHUB_USER],
                                os.environ[GITHUB_PASS]))
-        dr = json.loads(r.text)
+        json_repos = json.loads(r.text)
 
-        return dr[PUBLIC_REPOS] + dr[TOTAL_PRIVATE_REPOS]
+        return json_repos[PUBLIC_REPOS] + json_repos[TOTAL_PRIVATE_REPOS]
 
     def get_json_repos(self, page_number):
 
-        pagination_parameters = '?page={0}&per_page={1}'\
+        pagination_parameters = '?page={0}&per_page={1}' \
             .format(page_number, REPOS_PER_PAGE)
 
         url = posixpath.join(GITHUB_API_URL,
@@ -336,6 +416,34 @@ class BranchQuery(object):
         self.performance.repos_end = time.time()
         return repos
 
+
+class BranchQuery(Query):
+
+    DESCRIPTION = None
+
+    def filter_items(self, branches):
+        pass
+
+    def __init__(self, query_config=None):
+        super(BranchQuery, self).__init__(query_config)
+        self.data_type = Branch
+        self.performance = BranchQueryPerformance()
+
+    def query(self):
+
+        repos = self.get_repos()
+        branches = self.get_org_branches(repos)
+        query_branches = self.filter_items(branches)
+        self.add_committers_and_dates(query_branches)
+        return query_branches
+
+    def print_performance(self):
+        super(BranchQuery, self).print_performance()
+        print self.performance.BASIC_BRANCHES_PERFORMANCE_TEMPLATE \
+            .format(self.performance.basic_branches)
+        print self.performance.DETAILED_BRANCHES_PERFORMANCE_TEMPLATE \
+            .format(self.performance.detailed_branches)
+
     def get_json_branches(self, repo_name):
 
         url = posixpath.join(GITHUB_API_URL,
@@ -348,16 +456,15 @@ class BranchQuery(object):
                                     os.environ[GITHUB_PASS]))
         return json.loads(r.text)
 
-    def parse_json_branches(self, json_branches, repo_object):
-        list_of_branch_objects = [Branch(db['name'], repo_object)
-                                  for db in json_branches]
+    def parse_json_branches(self, json_branches, repo):
 
-        return list_of_branch_objects
+        branches = [Branch(jb['name'], repo) for jb in json_branches]
+        return branches
 
-    def get_branches(self, repo_object):
+    def get_branches(self, repo):
 
-        json_branches = self.get_json_branches(repo_object.name)
-        branch_list = self.parse_json_branches(json_branches, repo_object)
+        json_branches = self.get_json_branches(repo.name)
+        branch_list = self.parse_json_branches(json_branches, repo)
 
         return sorted(branch_list)
 
@@ -371,37 +478,102 @@ class BranchQuery(object):
         self.performance.basic_branches_end = time.time()
         return list(itertools.chain.from_iterable(branches_lists))
 
-    def load_branches(self):
+    def add_committer_and_date(self, branch):
+        url = posixpath.join(GITHUB_API_URL,
+                             REPOS,
+                             self.config.org_name,
+                             branch.repo.name,
+                             BRANCHES,
+                             branch.name
+                             )
+        s = requests.get(url, auth=(os.environ[GITHUB_USER],
+                                    os.environ[GITHUB_PASS])).text
+        json_details = json.loads(s)
+        branch.committer_email = \
+            json_details['commit']['commit']['author']['email']
+        # Remember to add dates, preferably in a date-Object format
+        # Ask Nir how to convert GitHub's time/date representation
+        # to a python object.
 
-        json_filepath = self.config.cache_path
-        branches = []
-        with open(json_filepath, 'r') as branches_file:
-            json_branches = json.load(branches_file)
-            for json_branch in json_branches[BRANCHES]:
+    def add_committers_and_dates(self, query_branches):
 
-                repo = None if json_branch[CONTAINING_REPO] is None \
-                    else Repo(json_branch[CONTAINING_REPO]
-                                         ['name'])
-                jira_issue = None if json_branch['jira_issue'] is None \
-                    else Issue(json_branch['jira_issue']['key'],
-                               json_branch['jira_issue']['status'])
-                last_committer = json_branch['committer_email']
+        self.performance.detailed_branches_start = time.time()
 
-                branch_object = Branch(json_branch['name'],
-                                       repo,
-                                       jira_issue=jira_issue,
-                                       committer_email=last_committer
-                                       )
-                branches.append(branch_object)
-        return branches
+        number_of_threads = \
+            self.determine_number_of_threads(len(query_branches))
+        pool = ThreadPool(number_of_threads)
+        pool.map(self.add_committer_and_date, query_branches)
 
-    def store_branches(self, branches):
-        cache_path = self.config.cache_path
-        base_dict = dict()
-        base_dict[BRANCHES] = branches
+        self.performance.detailed_branches_end = time.time()
 
-        with open(cache_path, 'w') as branches_file:
-            json.dump(base_dict, branches_file, default=lambda x: x.__dict__)
+
+class BranchQuerySurplus(BranchQuery):
+
+    DESCRIPTION = 'list all the surplus branches'
+    FILENAME = 'surplus_branches.json'
+
+    def __init__(self, query_config=None):
+        super(BranchQuerySurplus, self).__init__(query_config)
+
+    def filter_items(self, branches):
+        return filter(BranchQuerySurplus.name_filter, branches)
+
+    @staticmethod
+    def name_filter(branch):
+
+        master_branch_re = re.compile('^master$')
+        master_branch_cond = master_branch_re.search(branch.name)
+
+        build_branch_re = re.compile('-build$')
+        build_branch_cond = build_branch_re.search(branch.name)
+
+        cfy_branch_re = re.compile('(CFY)-*(\d)+')
+        cfy_branch_cond = cfy_branch_re.search(branch.name)
+
+        return (not master_branch_cond and
+                not build_branch_cond and
+                not cfy_branch_cond)
+
+
+class BranchQueryCfy(BranchQuery):
+
+    DESCRIPTION = 'list all branches that include \'CFY\' in their name ' \
+                  'and their corresponding JIRA issue status is either ' \
+                  '\'Closed\' or \'Resolved\''
+    FILENAME = 'cfy_branches.json'
+
+    def __init__(self, query_config=None):
+        super(BranchQueryCfy, self).__init__(query_config)
+        self.performance = BranchQueryCfyPerformance()
+
+    def print_performance(self):
+        super(BranchQueryCfy, self).print_performance()
+        print self.performance.ISSUES_PERFORMANCE_TEMPLATE \
+            .format(self.performance.issues)
+
+    @staticmethod
+    def name_filter(branch):
+
+        branch_name = branch.name
+
+        cfy_branch_re = re.compile('CFY')
+        cfy_branch_cond = cfy_branch_re.search(branch_name)
+
+        return cfy_branch_cond
+
+    def issue_filter(self, branch):
+        if branch.jira_issue is None:  # because of CFY-GIVEAWAY
+            return True
+
+        issue_status = branch.jira_issue.status
+
+        return issue_status == Issue.STATUS_CLOSED or \
+            issue_status == Issue.STATUS_RESOLVED
+
+    def filter_items(self, branches):
+        branches_that_contain_cfy = filter(self.name_filter, branches)
+        self.update_branches_with_issues(branches_that_contain_cfy)
+        return filter(self.issue_filter, branches_that_contain_cfy)
 
     def get_json_issue(self, key):
         if key is None:  # because of CFY-GIVEAWAY
@@ -424,34 +596,6 @@ class BranchQuery(object):
         issue = self.parse_json_issue(json_issue)
         return issue
 
-    def add_commiter_and_date(self, branch):
-        url = posixpath.join(GITHUB_API_URL,
-                             REPOS,
-                             self.config.org_name,
-                             branch.containing_repo.name,
-                             BRANCHES,
-                             branch.name
-                             )
-        s = requests.get(url, auth=(os.environ[GITHUB_USER],
-                                    os.environ[GITHUB_PASS])).text
-        json_details = json.loads(s)
-        branch.committer_email = \
-            json_details['commit']['commit']['author']['email']
-        # Remember to add dates, preferably in a date-Object format
-        # Ask Nir how to convert GitHub's time/date representation
-        # to a python object.
-
-    def add_committers_and_dates(self, query_branches):
-
-        self.performance.detailed_branches_start = time.time()
-
-        number_of_threads = \
-            self.determine_number_of_threads(len(query_branches))
-        pool = ThreadPool(number_of_threads)
-        pool.map(self.add_commiter_and_date, query_branches)
-
-        self.performance.detailed_branches_end = time.time()
-
     def update_branch_with_issue(self, branch):
         key = Issue.extract_issue_key(branch)
         issue = self.get_issue(key)
@@ -468,66 +612,96 @@ class BranchQuery(object):
         self.performance.issues_end = time.time()
 
 
-class BranchQuerySurplus(BranchQuery):
+class TagQuery(Query):
 
-    DESCRIPTION = 'list all the surplus branches'
-    FILENAME = 'surplus_branches.json'
-
-    def __init__(self, query_config=None):
-        super(BranchQuerySurplus, self).__init__(query_config)
-
-    def filter_branches(self, branches):
-        return filter(BranchQuerySurplus.name_filter, branches)
-
-    @staticmethod
-    def name_filter(branch):
-
-        branch_name = branch.name
-
-        re_master_branch = re.compile('^master$')
-        master_branch_cond = re_master_branch.search(branch_name)
-
-        re_build_branch = re.compile('-build$')
-        build_branch_cond = re_build_branch.search(branch_name)
-
-        re_cfy_branch = re.compile('(CFY)-*(\d)+')
-        cfy_branch_cond = re_cfy_branch.search(branch_name)
-
-        return (not master_branch_cond and
-                not build_branch_cond and
-                not cfy_branch_cond)
-
-
-class BranchQueryCfy(BranchQuery):
-
-    DESCRIPTION = 'list all branches that include \'CFY\' in their name ' \
-                  'and their corresponding JIRA issue status is either ' \
-                  '\'Closed\' or \'Resolved\''
-    FILENAME = 'cfy_branches.json'
+    DESCRIPTION = 'list all tags whose name doesn\'t satisfy convention'
+    FILENAME = 'tags.json'
 
     def __init__(self, query_config=None):
-        super(BranchQueryCfy, self).__init__(query_config)
+        super(TagQuery, self).__init__(query_config)
+        self.data_type = Tag
+        self.performance = TagQueryPerformance()
+
+    def filter_items(self, tags):
+        return filter(TagQuery.name_filter, tags)
 
     @staticmethod
-    def name_filter(branch):
+    def name_filter(tag):
 
-        branch_name = branch.name
+        release_tag_re = re.compile('^\d(.\d)*$')  # maybe make all the regex strings raw.
+        release_tag_cond = release_tag_re.search(tag.name)
 
-        re_cfy_branch = re.compile('CFY')
-        cfy_branch_cond = re_cfy_branch.search(branch_name)
+        milestone_tag_re = re.compile('^\d(.\d)*m\d$')
+        milestone_tag_cond = milestone_tag_re.search(tag.name)
 
-        return cfy_branch_cond
+        rc_tag_re = re.compile('^\d(.\d)*rc\d$')
+        rc_tag_cond = rc_tag_re.search(tag.name)
 
-    def issue_filter(self, branch):
-        if branch.jira_issue is None:  # because of CFY-GIVEAWAY
-            return True
+        return (not release_tag_cond and
+                not milestone_tag_cond and
+                not rc_tag_cond)
 
-        issue_status = branch.jira_issue.status
+    def query(self):
 
-        return issue_status == Issue.STATUS_CLOSED or \
-            issue_status == Issue.STATUS_RESOLVED
+        repos = self.get_repos()
+        tags = self.get_org_tags(repos)
+        query_tags = self.filter_items(tags)
+        return query_tags
 
-    def filter_branches(self, branches):
-        branches_that_contain_cfy = filter(self.name_filter, branches)
-        self.update_branches_with_issues(branches_that_contain_cfy)
-        return filter(self.issue_filter, branches_that_contain_cfy)
+    def print_performance(self):
+        super(TagQuery, self).print_performance()
+        print self.performance.TAGS_PERFORMANCE_TEMPLATE \
+            .format(self.performance.tags)
+
+    def get_org_tags(self, repos):
+
+        self.performance.tags_start = time.time()
+        num_of_threads = self.determine_number_of_threads(len(repos))
+        pool = ThreadPool(num_of_threads)
+
+        tags_lists = pool.map(self.get_tags, repos)
+        self.performance.tags_end = time.time()
+        return list(itertools.chain.from_iterable(tags_lists))
+
+    def get_tags(self, repo):
+
+        json_tags = self.get_json_tags(repo.name)
+        tag_list = self.parse_json_tags(json_tags, repo)
+
+        return sorted(tag_list)
+
+    def get_json_tags(self, repo_name):
+
+        url = posixpath.join(GITHUB_API_URL,
+                             REPOS,
+                             self.config.org_name,
+                             repo_name,
+                             TAGS
+                             )
+        r = requests.get(url, auth=(os.environ[GITHUB_USER],
+                                    os.environ[GITHUB_PASS]))
+        return json.loads(r.text)
+
+    def parse_json_tags(self, json_tags, repo):
+
+        tags = [Tag(jt['name'], repo) for jt in json_tags]
+        return tags
+
+# from contextlib import contextmanager
+
+# @contextmanager
+# def timed(query):
+#     query.performance.repos_start = time.time()
+#     yield
+#     query.performance.repos_end = time.time()
+
+#       ######################
+
+#     if self.config.mode == UP_TO_DATE_MODE:
+#
+#         with timed(self):
+#             repos = self.get_repos()
+#         branches = self.get_org_branches(repos)
+#         query_branches = self.filter_branches(branches)
+#         self.add_committers_and_dates(query_branches)
+#         self.update_cache(query_branches)
