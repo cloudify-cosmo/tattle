@@ -1,2 +1,4 @@
 .idea/
+cloudify_repo_status.egg-info/
 cloudify-repo-status.iml
+features.txt
