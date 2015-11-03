@@ -206,7 +206,11 @@ def main():
                                filename,
                                max_threads=args.max_threads,
                                )
-    query.process()
+
+    with query.performance.total:
+        query.process()
+    query.output()
+    query.print_performance()
 
 
 if __name__ == '__main__':

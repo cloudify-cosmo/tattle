@@ -98,6 +98,7 @@ class Branch(GitHubObject):
         return 'Branch name: {0}\n{1}Last committer: {2}\n'. \
             format(self.name, issue, self.committer_email.encode('utf-8'))
 
+
 class Tag(GitHubObject):
 
     def __init__(self, name, repo):
@@ -169,8 +170,10 @@ class QueryConfig(object):
         self.cache_path = os.path.join(resources_path, filename)
 
 
-# for xQueryPerformance time-related attributes
 class PerformanceTime(object):
+    """
+    for xQueryPerformance time attributes
+    """
 
     def __init__(self, name):
         self.name = name
@@ -192,32 +195,34 @@ class PerformanceTime(object):
         instance.__dict__[self.name] = value
 
 
+class TimeDelta(object):
+
+    start = PerformanceTime('start')
+    end = PerformanceTime('end')
+
+    def __init__(self):
+
+        self.start = 0.0
+        self.end = 0.0
+        self.value = 0.0
+
+    def __enter__(self):
+        self.start = time.time()
+
+    def __exit__(self, type, value, traceback):
+        self.end = time.time()
+        self.value = (self.end - self.start) * 1000
+
+
 class QueryPerformance(object):
 
     ACTION_PERFORMANCE_TEMPLATE = '\naction:\n{0}\n'
     TOTAL_PERFORMANCE_TEMPLATE = 'total time: {0}ms'
     REPOS_PERFORMANCE_TEMPLATE = 'getting the repos: {0}ms'
 
-    start = PerformanceTime('start')
-    end = PerformanceTime('end')
-    repos_start = PerformanceTime('repos_start')
-    repos_end = PerformanceTime('repos_end')
-
     def __init__(self):
-        self.start = 0.0
-        self.end = 0.0
-        self.repos_start = 0.0
-        self.repos_end = 0.0
-        self.tags_start = 0.0
-        self.tags_end = 0.0
-
-    @property
-    def total(self):
-        return (self.end - self.start) * 1000
-
-    @property
-    def repos(self):
-        return (self.repos_end - self.repos_start) * 1000
+        self.total = TimeDelta()
+        self.repos = TimeDelta()
 
 
 class BranchQueryPerformance(QueryPerformance):
@@ -233,19 +238,9 @@ class BranchQueryPerformance(QueryPerformance):
 
     def __init__(self):
         super(BranchQueryPerformance, self).__init__()
-        self.basic_branches_start = 0.0
-        self.basic_branches_end = 0.0
-        self.detailed_branches_start = 0.0
-        self.detailed_branches_end = 0.0
+        self.basic_branches = TimeDelta()
+        self.detailed_branches = TimeDelta()
 
-    @property
-    def basic_branches(self):
-        return (self.basic_branches_end - self.basic_branches_start) * 1000
-
-    @property
-    def detailed_branches(self):
-        return (self.detailed_branches_end -
-                self.detailed_branches_start) * 1000
 
 class BranchQueryCfyPerformance(BranchQueryPerformance):
 
@@ -256,12 +251,7 @@ class BranchQueryCfyPerformance(BranchQueryPerformance):
 
     def __init__(self):
         super(BranchQueryCfyPerformance, self).__init__()
-        self.issues_start = 0.0
-        self.issues_end = 0.0
-
-    @property
-    def issues(self):
-        return (self.issues_end - self.issues_start) * 1000
+        self.issues = TimeDelta()
 
 
 class TagQueryPerformance(QueryPerformance):
@@ -273,12 +263,7 @@ class TagQueryPerformance(QueryPerformance):
 
     def __init__(self):
         super(TagQueryPerformance, self).__init__()
-        self.tags_start = 0.0
-        self.tags_end = 0.0
-
-    @property
-    def tags(self):
-        return (self.tags_end - self.tags_start) * 1000
+        self.tags = TimeDelta()
 
 
 class Query(object):
@@ -309,7 +294,6 @@ class Query(object):
             return min(number_of_calls, max_number_of_threads)
 
     def process(self):
-        self.performance.start = time.time()
 
         if self.config.mode == UP_TO_DATE_MODE:
 
@@ -319,11 +303,6 @@ class Query(object):
         elif self.config.mode == USE_CACHE_MODE:
 
             self.result = self.load_from_cache()
-
-        self.output()
-
-        self.performance.end = time.time()
-        self.print_performance()
 
     def store(self):
 
@@ -362,11 +341,11 @@ class Query(object):
         print self.performance.ACTION_PERFORMANCE_TEMPLATE \
             .format(self.DESCRIPTION)
         print self.performance.TOTAL_PERFORMANCE_TEMPLATE \
-            .format(self.performance.total)
+            .format(self.performance.total.value)
         print ('-' * len(self.performance.TOTAL_PERFORMANCE_TEMPLATE
-                         .format(self.performance.total)))
+                         .format(self.performance.total.value)))
         print self.performance.REPOS_PERFORMANCE_TEMPLATE \
-            .format(self.performance.repos)
+            .format(self.performance.repos.value)
 
     def get_num_of_repos(self):
 
@@ -431,18 +410,21 @@ class BranchQuery(Query):
 
     def query(self):
 
-        repos = self.get_repos()
-        branches = self.get_org_branches(repos)
+        with self.performance.repos:
+            repos = self.get_repos()
+        with self.performance.basic_branches:
+            branches = self.get_org_branches(repos)
         query_branches = self.filter_items(branches)
-        self.add_committers_and_dates(query_branches)
+        with self.performance.detailed_branches:
+            self.add_committers_and_dates(query_branches)
         return query_branches
 
     def print_performance(self):
         super(BranchQuery, self).print_performance()
         print self.performance.BASIC_BRANCHES_PERFORMANCE_TEMPLATE \
-            .format(self.performance.basic_branches)
+            .format(self.performance.basic_branches.value)
         print self.performance.DETAILED_BRANCHES_PERFORMANCE_TEMPLATE \
-            .format(self.performance.detailed_branches)
+            .format(self.performance.detailed_branches.value)
 
     def get_json_branches(self, repo_name):
 
@@ -470,12 +452,9 @@ class BranchQuery(Query):
 
     def get_org_branches(self, repos):
 
-        self.performance.basic_branches_start = time.time()
         num_of_threads = self.determine_number_of_threads(len(repos))
         pool = ThreadPool(num_of_threads)
-
         branches_lists = pool.map(self.get_branches, repos)
-        self.performance.basic_branches_end = time.time()
         return list(itertools.chain.from_iterable(branches_lists))
 
     def add_committer_and_date(self, branch):
@@ -497,14 +476,10 @@ class BranchQuery(Query):
 
     def add_committers_and_dates(self, query_branches):
 
-        self.performance.detailed_branches_start = time.time()
-
         number_of_threads = \
             self.determine_number_of_threads(len(query_branches))
         pool = ThreadPool(number_of_threads)
         pool.map(self.add_committer_and_date, query_branches)
-
-        self.performance.detailed_branches_end = time.time()
 
 
 class BranchQuerySurplus(BranchQuery):
@@ -549,7 +524,7 @@ class BranchQueryCfy(BranchQuery):
     def print_performance(self):
         super(BranchQueryCfy, self).print_performance()
         print self.performance.ISSUES_PERFORMANCE_TEMPLATE \
-            .format(self.performance.issues)
+            .format(self.performance.issues.value)
 
     @staticmethod
     def name_filter(branch):
@@ -572,7 +547,8 @@ class BranchQueryCfy(BranchQuery):
 
     def filter_items(self, branches):
         branches_that_contain_cfy = filter(self.name_filter, branches)
-        self.update_branches_with_issues(branches_that_contain_cfy)
+        with self.performance.issues:
+            self.update_branches_with_issues(branches_that_contain_cfy)
         return filter(self.issue_filter, branches_that_contain_cfy)
 
     def get_json_issue(self, key):
@@ -603,13 +579,9 @@ class BranchQueryCfy(BranchQuery):
 
     def update_branches_with_issues(self, branches):
 
-        self.performance.issues_start = time.time()
-
         number_of_threads = self.determine_number_of_threads(len(branches))
         pool = ThreadPool(number_of_threads)
         pool.map(self.update_branch_with_issue, branches)
-
-        self.performance.issues_end = time.time()
 
 
 class TagQuery(Query):
@@ -643,24 +615,24 @@ class TagQuery(Query):
 
     def query(self):
 
-        repos = self.get_repos()
-        tags = self.get_org_tags(repos)
+        with self.performance.repos:
+            repos = self.get_repos()
+        with self.performance.tags:
+            tags = self.get_org_tags(repos)
         query_tags = self.filter_items(tags)
         return query_tags
 
     def print_performance(self):
         super(TagQuery, self).print_performance()
         print self.performance.TAGS_PERFORMANCE_TEMPLATE \
-            .format(self.performance.tags)
+            .format(self.performance.tags.value)
 
     def get_org_tags(self, repos):
 
-        self.performance.tags_start = time.time()
         num_of_threads = self.determine_number_of_threads(len(repos))
         pool = ThreadPool(num_of_threads)
-
         tags_lists = pool.map(self.get_tags, repos)
-        self.performance.tags_end = time.time()
+
         return list(itertools.chain.from_iterable(tags_lists))
 
     def get_tags(self, repo):
@@ -686,21 +658,3 @@ class TagQuery(Query):
 
         tags = [Tag(jt['name'], repo) for jt in json_tags]
         return tags
-
-# from contextlib import contextmanager
-
-# @contextmanager
-# def timed(delta):
-#     delta.start = time.time()
-#     yield
-#     delta.end = time.time()
-
-#     ########################
-
-#         with timed(self.peformance.repos_delta):
-#             repos = self.get_repos()
-#         branches = self.get_org_branches(repos)
-#         query_branches = self.filter_items(branches)
-#         self.add_committers_and_dates(query_branches)
-#
-#         return query_branches
