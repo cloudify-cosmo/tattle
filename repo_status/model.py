@@ -1,10 +1,12 @@
 import abc
 import itertools
 import json
+import logging
 import os
 import posixpath
 import re
 import requests
+import sys
 import time
 
 
@@ -32,6 +34,13 @@ os.environ['GITHUB_PASS'] = 'A1b2Y8z9'  # remove this later
 GITHUB_USER = 'GITHUB_USER'
 GITHUB_PASS = 'GITHUB_PASS'
 
+logger = logging.getLogger('model')
+logger.setLevel(logging.DEBUG)
+ish = logging.StreamHandler(sys.stdout)
+ish.setLevel(logging.INFO)
+info_formatter = logging.Formatter('%(asctime)s - %(message)s...', '%Y-%m-%d %H:%M:%S')
+ish.setFormatter(info_formatter)
+logger.addHandler(ish)
 
 class GitHubObject(object):
 
@@ -274,6 +283,7 @@ class Query(object):
 
     @abc.abstractmethod
     def filter_items(self, branches):
+        logger.info('filtering the requested data by the query criteria')
         pass
 
     @abc.abstractmethod
@@ -294,7 +304,7 @@ class Query(object):
             return min(number_of_calls, max_number_of_threads)
 
     def process(self):
-
+        logger.info('processing query')
         if self.config.mode == UP_TO_DATE_MODE:
 
             self.result = self.query()
@@ -305,12 +315,10 @@ class Query(object):
             self.result = self.load_from_cache()
 
     def store(self):
-
         with open(self.config.cache_path, 'w') as cache_file:
             json.dump(self.result, cache_file, default=lambda x: x.__dict__)
 
     def load_from_cache(self):
-
         items = []
         with open(self.config.cache_path, 'r') as cache_file:
             json_items = json.load(cache_file)
@@ -321,7 +329,6 @@ class Query(object):
         return items
 
     def output(self):
-
         cur_repo_name = None
 
         for item in self.result:
@@ -378,7 +385,8 @@ class Query(object):
         return Repo(json_repo['name'])
 
     def get_repos(self):
-
+        logger.info('retrieving github repositories for the {0} organization'
+                    .format(self.config.org_name))
         self.performance.repos_start = time.time()
 
         num_of_repos = self.get_num_of_repos()
@@ -401,7 +409,7 @@ class BranchQuery(Query):
     DESCRIPTION = None
 
     def filter_items(self, branches):
-        pass
+        super(BranchQuery, self).filter_items(branches)
 
     def __init__(self, query_config=None):
         super(BranchQuery, self).__init__(query_config)
@@ -451,7 +459,8 @@ class BranchQuery(Query):
         return sorted(branch_list)
 
     def get_org_branches(self, repos):
-
+        logger.info('retrieving basic github branch info for the {0} organization'
+                    .format(self.config.org_name))
         num_of_threads = self.determine_number_of_threads(len(repos))
         pool = ThreadPool(num_of_threads)
         branches_lists = pool.map(self.get_branches, repos)
@@ -475,7 +484,9 @@ class BranchQuery(Query):
         # to a python object.
 
     def add_committers_and_dates(self, query_branches):
-
+        logger.info('retrieving detailed github branch info for the {0} '
+                    'organization (queried branches only)'
+                    .format(self.config.org_name))
         number_of_threads = \
             self.determine_number_of_threads(len(query_branches))
         pool = ThreadPool(number_of_threads)
@@ -491,6 +502,7 @@ class BranchQuerySurplus(BranchQuery):
         super(BranchQuerySurplus, self).__init__(query_config)
 
     def filter_items(self, branches):
+        super(BranchQuerySurplus, self).filter_items(branches)
         return filter(BranchQuerySurplus.name_filter, branches)
 
     @staticmethod
@@ -546,6 +558,7 @@ class BranchQueryCfy(BranchQuery):
             issue_status == Issue.STATUS_RESOLVED
 
     def filter_items(self, branches):
+        super(BranchQueryCfy, self).filter_items(branches)
         branches_that_contain_cfy = filter(self.name_filter, branches)
         with self.performance.issues:
             self.update_branches_with_issues(branches_that_contain_cfy)
@@ -578,7 +591,8 @@ class BranchQueryCfy(BranchQuery):
         branch.jira_issue = issue
 
     def update_branches_with_issues(self, branches):
-
+        logger.info('retrieving JIRA issues'
+                    .format(self.config.org_name))
         number_of_threads = self.determine_number_of_threads(len(branches))
         pool = ThreadPool(number_of_threads)
         pool.map(self.update_branch_with_issue, branches)
@@ -628,7 +642,8 @@ class TagQuery(Query):
             .format(self.performance.tags.value)
 
     def get_org_tags(self, repos):
-
+        logger.info('retrieving github tags for the {0} organization'
+                    .format(self.config.org_name))
         num_of_threads = self.determine_number_of_threads(len(repos))
         pool = ThreadPool(num_of_threads)
         tags_lists = pool.map(self.get_tags, repos)

@@ -104,15 +104,11 @@ def parse_arguments():
 
 def determine_if_cache_exists(command_name, user_resource_path):
 
-    filename = BranchQuerySurplus.FILENAME \
-        if command_name == SURPLUS_BRANCHES_PARSE_NAME \
-        else BranchQueryCfy.FILENAME
-
     if command_name == SURPLUS_BRANCHES_PARSE_NAME:
         filename = BranchQuerySurplus.FILENAME
     elif command_name == CFY_BRANCHES_PARSE_NAME:
         filename = BranchQuerySurplus.FILENAME
-    elif command_name == TAGS_PARSE_NAME:
+    else: # command_name == TAGS_PARSE_NAME:
         filename = TagQuery.FILENAME
 
     filepath = os.path.join(user_resource_path, filename)
@@ -157,16 +153,18 @@ def determine_resources_path(args):
 
 
 def enforce_github_env_variables():
+
     try:
         user = os.environ[GITHUB_USER]  # not assigning these causes a warning
         password = os.environ[GITHUB_PASS]
     except KeyError:
         sys.exit(GITHUB_ENV_VARS_DONT_EXIST)
 
+
 def enforce_caching_with_query(parser, args, cache_action):
 
     if args.cache_path and not args.surplus_branches \
-            and not args.cfy_branches:
+            and not args.cfy_branches and not args.tags:
         parser.error('{0} must be given with --cfy-branches or '
                      '--surplus-branches or --tags'
                      .format(' or '.join(cache_action.option_strings)))
