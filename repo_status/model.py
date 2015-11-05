@@ -251,7 +251,7 @@ class BranchQueryPerformance(QueryPerformance):
         self.detailed_branches = TimeDelta()
 
 
-class BranchQueryCfyPerformance(BranchQueryPerformance):
+class BranchQueryStalePerformance(BranchQueryPerformance):
 
     ISSUES_PERFORMANCE_TEMPLATE = 'getting the issues: {0}ms'
 
@@ -259,7 +259,7 @@ class BranchQueryCfyPerformance(BranchQueryPerformance):
     issues_end = PerformanceTime('issues_end')
 
     def __init__(self):
-        super(BranchQueryCfyPerformance, self).__init__()
+        super(BranchQueryStalePerformance, self).__init__()
         self.issues = TimeDelta()
 
 
@@ -522,19 +522,20 @@ class BranchQuerySurplus(BranchQuery):
                 not cfy_branch_cond)
 
 
-class BranchQueryCfy(BranchQuery):
+class BranchQueryStale(BranchQuery):
 
-    DESCRIPTION = 'list all branches that include \'CFY\' in their name ' \
+    DESCRIPTION = 'list all the \'stale\' branches - \n' \
+                  '(branches that include \'CFY\' in their name ' \
                   'and their corresponding JIRA issue status is either ' \
-                  '\'Closed\' or \'Resolved\''
-    FILENAME = 'cfy_branches.json'
+                  '\'Closed\' or \'Resolved\')'
+    FILENAME = 'stale_branches.json'
 
     def __init__(self, query_config=None):
-        super(BranchQueryCfy, self).__init__(query_config)
-        self.performance = BranchQueryCfyPerformance()
+        super(BranchQueryStale, self).__init__(query_config)
+        self.performance = BranchQueryStalePerformance()
 
     def print_performance(self):
-        super(BranchQueryCfy, self).print_performance()
+        super(BranchQueryStale, self).print_performance()
         print self.performance.ISSUES_PERFORMANCE_TEMPLATE \
             .format(self.performance.issues.value)
 
@@ -558,7 +559,7 @@ class BranchQueryCfy(BranchQuery):
             issue_status == Issue.STATUS_RESOLVED
 
     def filter_items(self, branches):
-        super(BranchQueryCfy, self).filter_items(branches)
+        super(BranchQueryStale, self).filter_items(branches)
         branches_that_contain_cfy = filter(self.name_filter, branches)
         with self.performance.issues:
             self.update_branches_with_issues(branches_that_contain_cfy)

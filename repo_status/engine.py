@@ -3,7 +3,7 @@ from repo_status.model import GITHUB_PASS
 from repo_status.model import GITHUB_USER
 from repo_status.model import UP_TO_DATE_MODE
 from repo_status.model import USE_CACHE_MODE
-from repo_status.model import BranchQueryCfy
+from repo_status.model import BranchQueryStale
 from repo_status.model import BranchQuerySurplus
 from repo_status.model import TagQuery
 from repo_status.model import QueryConfig
@@ -16,7 +16,7 @@ ARGUMENT_PARSER_DESCRIPTION = \
      'of your GitHub branches')
 SURPLUS_BRANCHES_HELP_TEXT = \
     'display the surplus branches of cloudify-cosmo'
-CFY_BRANCHES_HELP_TEXT = \
+STALE_BRANCHES_HELP_TEXT = \
     'display all the CFY branches whose JIRA issue status' \
     ' is either \'closed\' or \'resolved\''
 TAGS_HELP_TEXT = 'display all the tags that don\'t follow ' \
@@ -30,13 +30,13 @@ MAX_THREADS_HELP_TEXT = \
     'if not specified, the program will use as many threads as it needs'
 
 SURPLUS_BRANCHES_COMMAND_NAME = '--surplus-branches'
-CFY_BRANCHES_COMMAND_NAME = '--cfy-branches'
+STALE_BRANCHES_COMMAND_NAME = '--stale-branches'
 TAGS_COMMAND_NAME = '--tags'
 CACHE_PATH_COMMAND_NAME = '--cache-path'
 MAX_THREADS_COMMAND_NAME = '--max-threads'
 
 SURPLUS_BRANCHES_PARSE_NAME = 'surplus_branches'
-CFY_BRANCHES_PARSE_NAME = 'cfy_branches'
+STALE_BRANCHES_PARSE_NAME = 'stale_branches'
 TAGS_PARSE_NAME = 'tags'
 CACHE_PATH_PARSE_NAME = 'cache_path'
 
@@ -65,14 +65,14 @@ def parse_arguments():
                        default=None,
                        help=SURPLUS_BRANCHES_HELP_TEXT)
 
-    group.add_argument('-c', CFY_BRANCHES_COMMAND_NAME,
+    group.add_argument('-c', STALE_BRANCHES_COMMAND_NAME,
                        type=str,
                        nargs='?',
                        choices=[USE_CACHE_MODE,
                                 UP_TO_DATE_MODE],
                        const=UP_TO_DATE_MODE,
                        default=None,
-                       help=CFY_BRANCHES_HELP_TEXT)
+                       help=STALE_BRANCHES_HELP_TEXT)
 
     group.add_argument('-t', TAGS_COMMAND_NAME,
                        type=str,
@@ -106,7 +106,7 @@ def determine_if_cache_exists(command_name, user_resource_path):
 
     if command_name == SURPLUS_BRANCHES_PARSE_NAME:
         filename = BranchQuerySurplus.FILENAME
-    elif command_name == CFY_BRANCHES_PARSE_NAME:
+    elif command_name == STALE_BRANCHES_PARSE_NAME:
         filename = BranchQuerySurplus.FILENAME
     else: # command_name == TAGS_PARSE_NAME:
         filename = TagQuery.FILENAME
@@ -137,7 +137,7 @@ def determine_resources_path(args):
     user_resource_path = os.path.join(os.path.expanduser('~'),
                                       d[CACHE_PATH_PARSE_NAME])
     command_name = SURPLUS_BRANCHES_PARSE_NAME \
-        if SURPLUS_BRANCHES_PARSE_NAME in d else CFY_BRANCHES_PARSE_NAME
+        if SURPLUS_BRANCHES_PARSE_NAME in d else STALE_BRANCHES_PARSE_NAME
 
     # if the user wishes to load the data from a predefined existing cache,
     # then we need to make sure that it exists.
@@ -164,8 +164,8 @@ def enforce_github_env_variables():
 def enforce_caching_with_query(parser, args, cache_action):
 
     if args.cache_path and not args.surplus_branches \
-            and not args.cfy_branches and not args.tags:
-        parser.error('{0} must be given with --cfy-branches or '
+            and not args.stale_branches and not args.tags:
+        parser.error('{0} must be given with --stale-branches or '
                      '--surplus-branches or --tags'
                      .format(' or '.join(cache_action.option_strings)))
 
@@ -183,11 +183,11 @@ def main():
         filename = BranchQuerySurplus.FILENAME
         query = BranchQuerySurplus()
 
-    elif args.cfy_branches is not None:
+    elif args.stale_branches is not None:
 
-        mode = args.cfy_branches
-        filename = BranchQueryCfy.FILENAME
-        query = BranchQueryCfy()
+        mode = args.stale_branches
+        filename = BranchQueryStale.FILENAME
+        query = BranchQueryStale()
 
     elif args.tags is not None:
 
