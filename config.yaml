@@ -1,0 +1,17 @@
+---
+max_threads:  20
+org_name:     cloudify_cosmo
+output_path:  /crs/output/report.json
+
+name_filters: [CFY]
+
+issue_filters:
+    branch_target_name: CFY-*\d+
+    branch_to_issue_transform:
+         from:  CFY
+         to:    -CFY
+    statues: [Closed, Resolved]
+
+***
+
+
