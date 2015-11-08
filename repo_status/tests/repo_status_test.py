@@ -6,7 +6,7 @@ from mock import MagicMock
 from mock import patch
 from repo_status.model import Branch
 from repo_status.model import BranchQuery
-from repo_status.model import BranchQueryCfy
+from repo_status.model import BranchQueryStale
 from repo_status.model import Issue
 from repo_status.model import QueryConfig
 from repo_status.model import Repo

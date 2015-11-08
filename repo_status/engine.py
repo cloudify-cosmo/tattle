@@ -108,7 +108,7 @@ def determine_if_cache_exists(command_name, user_resource_path):
         filename = BranchQuerySurplus.FILENAME
     elif command_name == STALE_BRANCHES_PARSE_NAME:
         filename = BranchQuerySurplus.FILENAME
-    else: # command_name == TAGS_PARSE_NAME:
+    else:  # command_name == TAGS_PARSE_NAME:
         filename = TagQuery.FILENAME
 
     filepath = os.path.join(user_resource_path, filename)
