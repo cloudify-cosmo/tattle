@@ -255,8 +255,10 @@ def create_query_config(args):
             yaml_config = yaml.load(config_file)
 
             org_name = yaml_config.get(ORG_NAME)
-            max_threads = yaml_config.get(MAX_THREADS, qc.NO_THREAD_LIMIT)
-            output_path = yaml_config.get(OUTPUT_PATH, DEFAULT_OUTPUT_PATH)
+            max_threads = yaml_config.get(MAX_THREADS,
+                                          QueryConfig.NO_THREAD_LIMIT)
+            output_path = yaml_config.get(OUTPUT_PATH,
+                                          DEFAULT_OUTPUT_PATH)
             name_filter = NameFilter.from_yaml(
                 yaml_config.get(NAME_FILTER, None))
             issue_filter = JiraIssueFilter.from_yaml(

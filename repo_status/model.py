@@ -19,7 +19,6 @@ BRANCHES = 'branches'
 REPO = 'repo'
 REPOS = 'repos'
 ORGS = 'orgs'
-TAGS = 'tags'
 JIRA_ISSUE = 'jira_issue'
 
 GITHUB_API_URL = 'https://api.github.com/'
@@ -207,23 +206,6 @@ class Branch(GitHubObject):
             format(self.name, issue, self.committer_email.encode('utf-8'))
 
 
-class Tag(GitHubObject):
-
-    def __init__(self, name, repo):
-        super(Tag, self).__init__(name)
-        self.repo = repo
-
-    @classmethod
-    def from_json(cls, json_tag):
-        return cls(json_tag['name'], Repo(json_tag['repo']))
-
-    def __str__(self):
-        return 'Tag: {0}'.format(self.name)
-
-    def __repr__(self):
-        return 'Tag(name={0})'.format(self.name)
-
-
 class Issue(object):
 
     JIRA_API_URL = 'https://cloudifysource.atlassian.net/rest/api/2/issue/'
@@ -362,18 +344,6 @@ class BranchQueryStalePerformance(BranchQueryPerformance):
     def __init__(self):
         super(BranchQueryStalePerformance, self).__init__()
         self.issues = TimeDelta()
-
-
-class TagQueryPerformance(QueryPerformance):
-
-    TAGS_PERFORMANCE_TEMPLATE = 'getting the tags: {0}ms'
-
-    tags_start = PerformanceTime('tags_start')
-    tags_end = PerformanceTime('tags_end')
-
-    def __init__(self):
-        super(TagQueryPerformance, self).__init__()
-        self.tags = TimeDelta()
 
 
 class Query(object):
@@ -698,80 +668,3 @@ class BranchQueryStale(BranchQuery):
         number_of_threads = self.determine_number_of_threads(len(branches))
         pool = ThreadPool(number_of_threads)
         pool.map(self.update_branch_with_issue, branches)
-
-
-class TagQuery(Query):
-
-    DESCRIPTION = 'list all tags whose name doesn\'t satisfy convention'
-    FILENAME = 'tags.json'
-
-    def __init__(self, query_config=None):
-        super(TagQuery, self).__init__(query_config)
-        self.data_type = Tag
-        self.performance = TagQueryPerformance()
-
-    def filter_items(self, tags):
-        return filter(TagQuery.name_filter, tags)
-
-    @staticmethod
-    def name_filter(tag):
-
-        release_tag_re = re.compile('^\d(.\d)*$')  # maybe make all the regex strings raw.
-        release_tag_cond = release_tag_re.search(tag.name)
-
-        milestone_tag_re = re.compile('^\d(.\d)*m\d$')
-        milestone_tag_cond = milestone_tag_re.search(tag.name)
-
-        rc_tag_re = re.compile('^\d(.\d)*rc\d$')
-        rc_tag_cond = rc_tag_re.search(tag.name)
-
-        return (not release_tag_cond and
-                not milestone_tag_cond and
-                not rc_tag_cond)
-
-    def query(self):
-
-        with self.performance.repos:
-            repos = self.get_repos()
-        with self.performance.tags:
-            tags = self.get_org_tags(repos)
-        query_tags = self.filter_items(tags)
-        return query_tags
-
-    def print_performance(self):
-        super(TagQuery, self).print_performance()
-        print self.performance.TAGS_PERFORMANCE_TEMPLATE \
-            .format(self.performance.tags.value)
-
-    def get_org_tags(self, repos):
-        logger.info('retrieving github tags for the {0} organization'
-                    .format(self.config.org_name))
-        num_of_threads = self.determine_number_of_threads(len(repos))
-        pool = ThreadPool(num_of_threads)
-        tags_lists = pool.map(self.get_tags, repos)
-
-        return list(itertools.chain.from_iterable(tags_lists))
-
-    def get_tags(self, repo):
-
-        json_tags = self.get_json_tags(repo.name)
-        tag_list = self.parse_json_tags(json_tags, repo)
-
-        return sorted(tag_list)
-
-    def get_json_tags(self, repo_name):
-
-        url = posixpath.join(GITHUB_API_URL,
-                             REPOS,
-                             self.config.org_name,
-                             repo_name,
-                             TAGS
-                             )
-        r = requests.get(url, auth=(os.environ[GITHUB_USER],
-                                    os.environ[GITHUB_PASS]))
-        return json.loads(r.text)
-
-    def parse_json_tags(self, json_tags, repo):
-
-        tags = [Tag(jt['name'], repo) for jt in json_tags]
-        return tags
