@@ -246,20 +246,18 @@ class QueryConfig(object):
     NO_THREAD_LIMIT = -1
 
     def __init__(self,
-                 resources_path,
-                 mode,
-                 filename,
-                 max_threads=NO_THREAD_LIMIT,
-                 org_name=CLOUDIFY_COSMO,
-                 name_filter=None):
+                 org_name,
+                 max_threads,
+                 output_path,
+                 name_filter,
+                 issue_filter
+                 ):
 
-        self.resources_path = resources_path
-        self.mode = mode
-        self.filename = filename
-        self.max_threads = max_threads
         self.org_name = org_name
-        self.cache_path = os.path.join(resources_path, filename)
+        self.max_threads = max_threads
+        self.output_path = output_path
         self.name_filter = name_filter
+        self.issue_filter = issue_filter
 
 
 class PerformanceTime(object):
