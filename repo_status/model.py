@@ -42,6 +42,48 @@ info_formatter = logging.Formatter('%(asctime)s - %(message)s...', '%Y-%m-%d %H:
 ish.setFormatter(info_formatter)
 logger.addHandler(ish)
 
+# create classes:
+#   NameFilter, which has a list of regex filters
+#       (in the future, it can also contain attributes that tell us if we should
+#       'or' or 'and' the elements of the list, and/or negate the final result)
+#   IssueFilter, which has a list of JIRA issues statuses
+#       (what is said about the regex filter list of NameFilter can be said
+#       about the above list)
+#       a 'base for transform' which is a part of the branch's name which is to
+#       transformed (created with a regex search, exactly like in the current
+#       extract_issue_key()
+#       and a NameTransform object which has a from and a to attributes, both are strings.
+#       this object helps transform the transform_base to an issue key.
+#       maybe even the two latter are a part of a BranchToIssueTransform
+#       (or maybe it is just a 'Transform', and it has a base, from and to attributes.
+#
+# and change QueryConfig accordingly
+
+
+class NameFilter(object):
+
+    REGEXES = 'regular_expressions'
+
+    def __init__(self, regex_list):
+
+        self.regex_list = regex_list
+
+    @classmethod
+    def from_yaml(cls, yaml_nf):
+
+        if yaml_nf is None:
+            return None
+
+        templates = yaml_nf.get(cls.REGEXES, list())
+        regex_list = [re.compile(t) for t in templates]
+
+        return cls(regex_list)
+
+
+
+
+
+
 class GitHubObject(object):
 
     def __init__(self, name):
@@ -169,7 +211,8 @@ class QueryConfig(object):
                  mode,
                  filename,
                  max_threads=NO_THREAD_LIMIT,
-                 org_name=CLOUDIFY_COSMO):
+                 org_name=CLOUDIFY_COSMO,
+                 name_filter=None):
 
         self.resources_path = resources_path
         self.mode = mode
@@ -177,6 +220,7 @@ class QueryConfig(object):
         self.max_threads = max_threads
         self.org_name = org_name
         self.cache_path = os.path.join(resources_path, filename)
+        self.name_filter = name_filter
 
 
 class PerformanceTime(object):

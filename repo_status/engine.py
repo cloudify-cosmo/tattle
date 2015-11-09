@@ -6,7 +6,7 @@
 # from repo_status.model import BranchQueryStale
 # from repo_status.model import BranchQuerySurplus
 # from repo_status.model import TagQuery
-# from repo_status.model import QueryConfig
+
 
 # import tempfile
 #
@@ -202,8 +202,12 @@
 #
 import argparse
 import os
+import tempfile
+import yaml
 import sys
 
+from repo_status.model import QueryConfig
+from repo_status.model import NameFilter
 
 GITHUB_USER = 'GITHUB_USER'
 GITHUB_PASS = 'GITHUB_PASS'
@@ -216,7 +220,13 @@ GITHUB_ENV_VARS_DONT_EXIST = 'GitHub authentication environment variables' \
 
 ARGUMENT_PARSER_DESCRIPTION = 'Perform simple queries on your GitHub branches'
 
-
+ORG_NAME = 'org_name'
+MAX_THREADS = 'max_threads'
+OUTPUT_PATH = 'output path'
+DEFAULT_OUTPUT_PATH = os.path.join(tempfile.gettempdir(),
+                                  'cloudify-repo-status/report.json')
+NAME_FILTER = 'name_filter'
+ISSUE_FILTER = 'issue_filter/'
 def enforce_github_env_variables():
 
     try:
@@ -239,8 +249,15 @@ def parse_arguments():
 def create_query_config(args):
     try:
         with open(args.config_path) as config_file:
-            # yaml = config_file.read_as_yaml
-            # qc = QueryConfig
+            yaml_config = yaml.load(config_file)
+            qc = QueryConfig()
+            qc.org_name = yaml_config.get(ORG_NAME)
+            qc.max_threads = yaml_config.get(MAX_THREADS, qc.NO_THREAD_LIMIT)
+            qc.output_path = yaml_config.get(OUTPUT_PATH, DEFAULT_OUTPUT_PATH)
+            qc.name_filter = NameFilter.from_yaml(
+                yaml_config.get(NAME_FILTER, None))
+            # qc.issue_filter = IssueFilter.from_yaml(
+            #     yaml_config.get(ISSUE_FILTER, None))
             # for each of these fields, fill qc will a value. if a field doesn't exist, consider using a default value:
             # org_name, maximal_number_of_threads, output_file_path, name_filters,
             # issue_filters {branch_target_name, branch_to_issue_transform: {from, to}, statuses},
@@ -260,9 +277,10 @@ def main():
     # validate_config_path(args)
     # put that inside 'create_config'. no need to open the file twice.
     # or even don't make this test without 'dedicating' a function to it.
-    query = Query()
-    query.config = create_query_config(args.config_path)
-    query.procces()
+    config = create_query_config(args)
+    # query = Query()
+    # query.config = create_query_config(args.config_path)
+    # query.procces()
 
 
 
