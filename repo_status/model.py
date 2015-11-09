@@ -80,8 +80,65 @@ class NameFilter(object):
         return cls(regex_list)
 
 
+class JiraIssueFilter(object):
+
+    TRANSFORM = 'branch_to_issue_transform'
+    STATUSES = 'jira_statuses'
+
+    def __init__(self, branch_to_issue_transform=None, jira_statuses=None):
+
+        self.branch_to_issue_transform = branch_to_issue_transform
+        self.jira_statuses = jira_statuses
+
+    @classmethod
+    def from_yaml(cls, yaml_if):
+        if yaml_if is None:
+            return None
+
+        transform = Transform.from_yaml(yaml_if.get(cls.TRANSFORM, None))
+        jira_statuses = yaml_if.get(cls.STATUSES, list())
+
+        return cls(transform, jira_statuses)
 
 
+class Transform(object):
+
+    BASE_INDUCER = 'base_inducer'
+    EDGE_CASE_STR = 'edge_case_str'
+    EDGE_FROM = 'edge_from'
+    EDGE_TO = 'edge_to'
+
+    def __init__(self, base_inducer, edge_case_str, edge_from, edge_to):
+        self.base_inducer = base_inducer
+        self.edge_case_str = edge_case_str
+        self.edge_from = edge_from
+        self.edge_to = edge_to
+
+    @classmethod
+    def from_yaml(cls, yaml_tf):
+
+        if yaml_tf is None:
+            return None
+
+        base_inducer = yaml_tf.get(cls.BASE_INDUCER)
+        edge_case_str = yaml_tf.get(cls.EDGE_CASE_STR)
+        edge_from = yaml_tf.get(cls.EDGE_FROM)
+        edge_to = yaml_tf.get(cls.EDGE_TO)
+
+        return cls(base_inducer, edge_case_str, edge_from, edge_to)
+
+    def transform(self, s):
+
+        base = re.search(self.base_inducer, s)
+        if base is not None:
+            group = base.group()
+            if self.edge_case_str not in group:
+                return group.replace(self.edge_from,
+                                     self.edge_to)
+            else:
+                return group
+        else:
+            return None
 
 
 class GitHubObject(object):
