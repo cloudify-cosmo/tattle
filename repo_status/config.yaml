@@ -5,24 +5,15 @@ github_org_name:  cloudify_cosmo
 output_path:      /crs/output/report.json
 
 filters:
-    
-    name_filter:
-
-        regular_expressions: [CFY]
+  - type: name
+    regular_expressions: [CFY]
         
-    issue_filter:
-    
-        jira_team_name: cloudifysource
-        jira_statuses:  [Closed, Resolved]
-    
-        branch_to_issue_transform:
-
-            base_inducer:   CFY-*\d+
-            edge_case_str:  '-'
-            edge_from:      CFY
-            edge_to:        -CFY
-    
-
-
-
+  - type: issue
+    jira_team_name: cloudifysource
+    jira_statuses:  [Closed, Resolved]
+    branch_to_issue_transform:
+        base_inducer:   CFY-*\d+
+        edge_case_str:  '-'
+        edge_from:      CFY
+        edge_to:        -CFY
 ...
