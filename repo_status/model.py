@@ -22,6 +22,7 @@ ORGS = 'orgs'
 JIRA_ISSUE = 'jira_issue'
 
 GITHUB_API_URL = 'https://api.github.com/'
+JIRA_API_URL_TEMPLATE = 'https://{0}.atlassian.net/rest/api/2/issue/'
 CLOUDIFY_COSMO = 'cloudify-cosmo'
 PUBLIC_REPOS = 'public_repos'
 TOTAL_PRIVATE_REPOS = 'total_private_repos'
@@ -40,23 +41,6 @@ ish.setLevel(logging.INFO)
 info_formatter = logging.Formatter('%(asctime)s - %(message)s...', '%Y-%m-%d %H:%M:%S')
 ish.setFormatter(info_formatter)
 logger.addHandler(ish)
-
-# create classes:
-#   NameFilter, which has a list of regex filters
-#       (in the future, it can also contain attributes that tell us if we should
-#       'or' or 'and' the elements of the list, and/or negate the final result)
-#   IssueFilter, which has a list of JIRA issues statuses
-#       (what is said about the regex filter list of NameFilter can be said
-#       about the above list)
-#       a 'base for transform' which is a part of the branch's name which is to
-#       transformed (created with a regex search, exactly like in the current
-#       extract_issue_key()
-#       and a NameTransform object which has a from and a to attributes, both are strings.
-#       this object helps transform the transform_base to an issue key.
-#       maybe even the two latter are a part of a BranchToIssueTransform
-#       (or maybe it is just a 'Transform', and it has a base, from and to attributes.
-#
-# and change QueryConfig accordingly
 
 
 class NameFilter(object):
@@ -78,14 +62,30 @@ class NameFilter(object):
 
         return cls(regex_list)
 
+    def filter(self, items):
+        return filter(self.legal, items)
+
+    def legal(self, string):
+        result = False
+        for regex in self.regex_list:
+            if bool(re.search(regex, string)):
+                return True
+        return False
+
 
 class JiraIssueFilter(object):
 
-    TRANSFORM = 'branch_to_issue_transform'
+    JIRA_TEAM_NAME = 'jira_team_name'
     STATUSES = 'jira_statuses'
+    TRANSFORM = 'branch_to_issue_transform'
 
-    def __init__(self, branch_to_issue_transform=None, jira_statuses=None):
 
+    def __init__(self,
+                 jira_team_name,
+                 jira_statuses=None,
+                 branch_to_issue_transform=None
+                 ):
+        self.jira_team_name = jira_team_name
         self.branch_to_issue_transform = branch_to_issue_transform
         self.jira_statuses = jira_statuses
 
@@ -93,11 +93,16 @@ class JiraIssueFilter(object):
     def from_yaml(cls, yaml_if):
         if yaml_if is None:
             return None
-
-        transform = Transform.from_yaml(yaml_if.get(cls.TRANSFORM, None))
+        jira_team_name = yaml_if.get(cls.JIRA_TEAM_NAME, None)
         jira_statuses = yaml_if.get(cls.STATUSES, list())
+        transform = Transform.from_yaml(yaml_if.get(cls.TRANSFORM, None))
 
-        return cls(transform, jira_statuses)
+        return cls(jira_team_name, jira_statuses, transform)
+
+    def filter(self, items):
+        keys = Issue.generate_jira_issue_keys(
+            items, self.branch_to_issue_transform)
+        issues = Issue.get_issues(self.jira_team_name, keys)
 
 
 class Transform(object):
@@ -126,9 +131,9 @@ class Transform(object):
 
         return cls(base_inducer, edge_case_str, edge_from, edge_to)
 
-    def transform(self, s):
+    def transform(self, src):
 
-        base = re.search(self.base_inducer, s)
+        base = re.search(self.base_inducer, src)
         if base is not None:
             group = base.group()
             if self.edge_case_str not in group:
@@ -138,6 +143,22 @@ class Transform(object):
                 return group
         else:
             return None
+
+
+class QueryConfig(object):
+    NO_THREAD_LIMIT = -1
+
+    def __init__(self,
+                 max_threads,
+                 github_org_name,
+                 filters,
+                 output_path
+                 ):
+
+        self.max_threads = max_threads
+        self.github_org_name = github_org_name
+        self.filters = filters
+        self.output_path = output_path
 
 
 class GitHubObject(object):
@@ -208,7 +229,6 @@ class Branch(GitHubObject):
 
 class Issue(object):
 
-    JIRA_API_URL = 'https://cloudifysource.atlassian.net/rest/api/2/issue/'
     JIRA_STR_TEMPLATE = u'JIRA status: {0}\n'
     STATUS_CLOSED = u'Closed'
     STATUS_RESOLVED = u'Resolved'
@@ -229,119 +249,52 @@ class Issue(object):
         return self.JIRA_STR_TEMPLATE.format(self.status)
 
     @staticmethod
-    def extract_issue_key(branch):
+    def generate_jira_issue_keys(items, transform):
+        return [transform(item.name) for item in items]
 
-        match_object = re.search('CFY-*\d+', branch.name)
-        if match_object is not None:
-            group = match_object.group()
-            if '-' not in group:
-                return group.replace('CFY', 'CFY-')
-            else:
-                return group
-        else:
-            return None
+    @staticmethod
+    def get_issues(jira_team_name, keys):
+        logger.info('retrieving JIRA issues for team {0}'
+                    .format(jira_team_name))
+        number_of_threads = self.determine_number_of_threads(len(keys))
+        pool = ThreadPool(number_of_threads)
+        pool.map(self.update_branch_with_issue, branches)
 
+    # def update_branch_with_issue(self, branch):
+    #     key = self.extract_issue_key(branch)
+    #     issue = self.get_issue(key)
+    #     branch.jira_issue = issue
+    #
+    #
+    # def update_branches_with_issues(self, branches):
+    #     logger.info('retrieving JIRA issues for team {0}'
+    #                 .format(self.config.jira_team_name))
+    #     number_of_threads = self.determine_number_of_threads(len(branches))
+    #     pool = ThreadPool(number_of_threads)
+    #     pool.map(self.update_branch_with_issue, branches)
+    #
+    #
+    # def get_json_issue(self, key):
+    #     if key is None:  # because of CFY-GIVEAWAY
+    #         return key
+    #     json_issue = requests.get(JIRA_API_URL_TEMPLATE
+    #                               .format(self.config.jira_team_name) +
+    #                               key +
+    #                               '?fields=status')
+    #     return json.loads(json_issue.text)
+    #
+    # def parse_json_issue(self, json_issue):
+    #     if json_issue is None:  # because of CFY-GIVEAWAY
+    #         return json_issue
+    #
+    #     issue = Issue(json_issue['key'],
+    #                   json_issue['fields']['status']['name'])
+    #     return issue
 
-class QueryConfig(object):
-    NO_THREAD_LIMIT = -1
-
-    def __init__(self,
-                 org_name,
-                 max_threads,
-                 output_path,
-                 name_filter,
-                 issue_filter
-                 ):
-
-        self.org_name = org_name
-        self.max_threads = max_threads
-        self.output_path = output_path
-        self.name_filter = name_filter
-        self.issue_filter = issue_filter
-
-
-class PerformanceTime(object):
-    """
-    for xQueryPerformance time attributes
-    """
-
-    def __init__(self, name):
-        self.name = name
-
-    def __get__(self, instance, cls):
-        if instance is None:
-            return self
-        else:
-            return instance.__dict__[self.name]
-
-    def __set__(self, instance, value):
-
-        if not isinstance(value, type(time.time())):
-            raise TypeError('Expected an float')  # or time.time()-ish object?
-
-        if value < 0:
-            raise ValueError('Expected a non-negative value')
-
-        instance.__dict__[self.name] = value
-
-
-class TimeDelta(object):
-
-    start = PerformanceTime('start')
-    end = PerformanceTime('end')
-
-    def __init__(self):
-
-        self.start = 0.0
-        self.end = 0.0
-        self.value = 0.0
-
-    def __enter__(self):
-        self.start = time.time()
-
-    def __exit__(self, type, value, traceback):
-        self.end = time.time()
-        self.value = (self.end - self.start) * 1000
-
-
-class QueryPerformance(object):
-
-    ACTION_PERFORMANCE_TEMPLATE = '\naction:\n{0}\n'
-    TOTAL_PERFORMANCE_TEMPLATE = 'total time: {0}ms'
-    REPOS_PERFORMANCE_TEMPLATE = 'getting the repos: {0}ms'
-
-    def __init__(self):
-        self.total = TimeDelta()
-        self.repos = TimeDelta()
-
-
-class BranchQueryPerformance(QueryPerformance):
-
-    BASIC_BRANCHES_PERFORMANCE_TEMPLATE = 'getting basic branch info: {0}ms'
-    DETAILED_BRANCHES_PERFORMANCE_TEMPLATE = \
-        'getting detailed branch info: {0}ms'
-
-    basic_branches_start = PerformanceTime('basic_branches_start')
-    basic_branches_end = PerformanceTime('basic_branches_end')
-    detailed_branches_start = PerformanceTime('detailed_branches_start')
-    detailed_branches_end = PerformanceTime('detailed_branches_end')
-
-    def __init__(self):
-        super(BranchQueryPerformance, self).__init__()
-        self.basic_branches = TimeDelta()
-        self.detailed_branches = TimeDelta()
-
-
-class BranchQueryStalePerformance(BranchQueryPerformance):
-
-    ISSUES_PERFORMANCE_TEMPLATE = 'getting the issues: {0}ms'
-
-    issues_start = PerformanceTime('issues_start')
-    issues_end = PerformanceTime('issues_end')
-
-    def __init__(self):
-        super(BranchQueryStalePerformance, self).__init__()
-        self.issues = TimeDelta()
+    # def get_issue(self, key):
+    #     json_issue = self.get_json_issue(key)
+    #     issue = self.parse_json_issue(json_issue)
+    #     return issue
 
 
 class Query(object):
@@ -427,7 +380,7 @@ class Query(object):
 
         url = posixpath.join(GITHUB_API_URL,
                              ORGS,
-                             self.config.org_name
+                             self.config.github_org_name
                              )
         r = requests.get(url,
                          auth=(os.environ[GITHUB_USER],
@@ -443,7 +396,7 @@ class Query(object):
 
         url = posixpath.join(GITHUB_API_URL,
                              ORGS,
-                             self.config.org_name,
+                             self.config.github_org_name,
                              REPOS + pagination_parameters,
                              )
         response = requests.get(url, auth=(os.environ[GITHUB_USER],
@@ -455,7 +408,7 @@ class Query(object):
 
     def get_repos(self):
         logger.info('retrieving github repositories for the {0} organization'
-                    .format(self.config.org_name))
+                    .format(self.config.github_org_name))
         self.performance.repos_start = time.time()
 
         num_of_repos = self.get_num_of_repos()
@@ -473,12 +426,28 @@ class Query(object):
         return repos
 
 
+    # def extract_issue_key(self, branch):
+    #
+    #     match_object = re.search('CFY-*\d+', branch.name)
+    #     if match_object is not None:
+    #         group = match_object.group()
+    #         if '-' not in group:
+    #             return group.replace('CFY', 'CFY-')
+    #         else:
+    #             return group
+    #     else:
+    #         return None
+
+
 class BranchQuery(Query):
 
     DESCRIPTION = None
 
     def filter_items(self, branches):
         super(BranchQuery, self).filter_items(branches)
+        result = branches
+        for xf in self.config.filters:
+            result = xf.filter(result)
 
     def __init__(self, query_config=None):
         super(BranchQuery, self).__init__(query_config)
@@ -507,7 +476,7 @@ class BranchQuery(Query):
 
         url = posixpath.join(GITHUB_API_URL,
                              REPOS,
-                             self.config.org_name,
+                             self.config.github_org_name,
                              repo_name,
                              BRANCHES
                              )
@@ -529,7 +498,7 @@ class BranchQuery(Query):
 
     def get_org_branches(self, repos):
         logger.info('retrieving basic github branch info for the {0} organization'
-                    .format(self.config.org_name))
+                    .format(self.config.github_org_name))
         num_of_threads = self.determine_number_of_threads(len(repos))
         pool = ThreadPool(num_of_threads)
         branches_lists = pool.map(self.get_branches, repos)
@@ -538,7 +507,7 @@ class BranchQuery(Query):
     def add_committer_and_date(self, branch):
         url = posixpath.join(GITHUB_API_URL,
                              REPOS,
-                             self.config.org_name,
+                             self.config.github_org_name,
                              branch.repo.name,
                              BRANCHES,
                              branch.name
@@ -555,7 +524,7 @@ class BranchQuery(Query):
     def add_committers_and_dates(self, query_branches):
         logger.info('retrieving detailed github branch info for the {0} '
                     'organization (queried branches only)'
-                    .format(self.config.org_name))
+                    .format(self.config.github_org_name))
         number_of_threads = \
             self.determine_number_of_threads(len(query_branches))
         pool = ThreadPool(number_of_threads)
@@ -591,78 +560,85 @@ class BranchQuerySurplus(BranchQuery):
                 not cfy_branch_cond)
 
 
-class BranchQueryStale(BranchQuery):
+class PerformanceTime(object):
+    """
+    for xQueryPerformance time attributes
+    """
 
-    DESCRIPTION = 'list all the \'stale\' branches - \n' \
-                  '(branches that include \'CFY\' in their name ' \
-                  'and their corresponding JIRA issue status is either ' \
-                  '\'Closed\' or \'Resolved\')'
-    FILENAME = 'stale_branches.json'
+    def __init__(self, name):
+        self.name = name
 
-    def __init__(self, query_config=None):
-        super(BranchQueryStale, self).__init__(query_config)
-        self.performance = BranchQueryStalePerformance()
+    def __get__(self, instance, cls):
+        if instance is None:
+            return self
+        else:
+            return instance.__dict__[self.name]
 
-    def print_performance(self):
-        super(BranchQueryStale, self).print_performance()
-        print self.performance.ISSUES_PERFORMANCE_TEMPLATE \
-            .format(self.performance.issues.value)
+    def __set__(self, instance, value):
 
-    @staticmethod
-    def name_filter(branch):
+        if not isinstance(value, type(time.time())):
+            raise TypeError('Expected an float')  # or time.time()-ish object?
 
-        branch_name = branch.name
+        if value < 0:
+            raise ValueError('Expected a non-negative value')
 
-        cfy_branch_re = re.compile('CFY')
-        cfy_branch_cond = cfy_branch_re.search(branch_name)
+        instance.__dict__[self.name] = value
 
-        return cfy_branch_cond
 
-    def issue_filter(self, branch):
-        if branch.jira_issue is None:  # because of CFY-GIVEAWAY
-            return True
+class TimeDelta(object):
 
-        issue_status = branch.jira_issue.status
+    start = PerformanceTime('start')
+    end = PerformanceTime('end')
 
-        return issue_status == Issue.STATUS_CLOSED or \
-            issue_status == Issue.STATUS_RESOLVED
+    def __init__(self):
 
-    def filter_items(self, branches):
-        super(BranchQueryStale, self).filter_items(branches)
-        branches_that_contain_cfy = filter(self.name_filter, branches)
-        with self.performance.issues:
-            self.update_branches_with_issues(branches_that_contain_cfy)
-        return filter(self.issue_filter, branches_that_contain_cfy)
+        self.start = 0.0
+        self.end = 0.0
+        self.value = 0.0
 
-    def get_json_issue(self, key):
-        if key is None:  # because of CFY-GIVEAWAY
-            return key
-        json_issue = requests.get(Issue.JIRA_API_URL +
-                                  key +
-                                  '?fields=status')
-        return json.loads(json_issue.text)
+    def __enter__(self):
+        self.start = time.time()
 
-    def parse_json_issue(self, json_issue):
-        if json_issue is None:  # because of CFY-GIVEAWAY
-            return json_issue
+    def __exit__(self, type, value, traceback):
+        self.end = time.time()
+        self.value = (self.end - self.start) * 1000
 
-        issue = Issue(json_issue['key'],
-                      json_issue['fields']['status']['name'])
-        return issue
 
-    def get_issue(self, key):
-        json_issue = self.get_json_issue(key)
-        issue = self.parse_json_issue(json_issue)
-        return issue
+class QueryPerformance(object):
 
-    def update_branch_with_issue(self, branch):
-        key = Issue.extract_issue_key(branch)
-        issue = self.get_issue(key)
-        branch.jira_issue = issue
+    ACTION_PERFORMANCE_TEMPLATE = '\naction:\n{0}\n'
+    TOTAL_PERFORMANCE_TEMPLATE = 'total time: {0}ms'
+    REPOS_PERFORMANCE_TEMPLATE = 'getting the repos: {0}ms'
 
-    def update_branches_with_issues(self, branches):
-        logger.info('retrieving JIRA issues'
-                    .format(self.config.org_name))
-        number_of_threads = self.determine_number_of_threads(len(branches))
-        pool = ThreadPool(number_of_threads)
-        pool.map(self.update_branch_with_issue, branches)
+    def __init__(self):
+        self.total = TimeDelta()
+        self.repos = TimeDelta()
+
+
+class BranchQueryPerformance(QueryPerformance):
+
+    BASIC_BRANCHES_PERFORMANCE_TEMPLATE = 'getting basic branch info: {0}ms'
+    DETAILED_BRANCHES_PERFORMANCE_TEMPLATE = \
+        'getting detailed branch info: {0}ms'
+
+    basic_branches_start = PerformanceTime('basic_branches_start')
+    basic_branches_end = PerformanceTime('basic_branches_end')
+    detailed_branches_start = PerformanceTime('detailed_branches_start')
+    detailed_branches_end = PerformanceTime('detailed_branches_end')
+
+    def __init__(self):
+        super(BranchQueryPerformance, self).__init__()
+        self.basic_branches = TimeDelta()
+        self.detailed_branches = TimeDelta()
+
+
+class BranchQueryStalePerformance(BranchQueryPerformance):
+
+    ISSUES_PERFORMANCE_TEMPLATE = 'getting the issues: {0}ms'
+
+    issues_start = PerformanceTime('issues_start')
+    issues_end = PerformanceTime('issues_end')
+
+    def __init__(self):
+        super(BranchQueryStalePerformance, self).__init__()
+        self.issues = TimeDelta()

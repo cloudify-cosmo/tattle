@@ -221,8 +221,9 @@ GITHUB_ENV_VARS_DONT_EXIST = 'GitHub authentication environment variables' \
 
 ARGUMENT_PARSER_DESCRIPTION = 'Perform simple queries on your GitHub branches'
 
-ORG_NAME = 'org_name'
 MAX_THREADS = 'max_threads'
+GITHUB_ORG_NAME = 'github_org_name'
+
 OUTPUT_PATH = 'output path'
 DEFAULT_OUTPUT_PATH = os.path.join(tempfile.gettempdir(),
                                   'cloudify-repo-status/report.json')
@@ -254,21 +255,23 @@ def create_query_config(args):
         with open(args.config_path) as config_file:
             yaml_config = yaml.load(config_file)
 
-            org_name = yaml_config.get(ORG_NAME)
             max_threads = yaml_config.get(MAX_THREADS,
                                           QueryConfig.NO_THREAD_LIMIT)
+            github_org_name = yaml_config.get(GITHUB_ORG_NAME)
+
+            filters = list()
+            filters.append(NameFilter.from_yaml(
+                yaml_config.get(NAME_FILTER, None)))
+            filters.append(JiraIssueFilter.from_yaml(
+                yaml_config.get(ISSUE_FILTER, None)))
+
             output_path = yaml_config.get(OUTPUT_PATH,
                                           DEFAULT_OUTPUT_PATH)
-            name_filter = NameFilter.from_yaml(
-                yaml_config.get(NAME_FILTER, None))
-            issue_filter = JiraIssueFilter.from_yaml(
-                yaml_config.get(ISSUE_FILTER, None))
 
-            return QueryConfig(org_name,
-                               max_threads,
+            return QueryConfig(max_threads,
+                               github_org_name,
+                               filters,
                                output_path,
-                               name_filter,
-                               issue_filter
                                )
     except IOError as error:
         sys.exit(error)
