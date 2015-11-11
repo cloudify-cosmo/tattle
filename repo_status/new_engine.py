@@ -1,12 +1,11 @@
 import argparse
 import os
-import tempfile
 import yaml
 import sys
 
-from repo_status.model import QueryConfig
-from repo_status.model import NameFilter
-from repo_status.model import JiraIssueFilter
+from repo_status.new_model import QueryConfig
+
+
 
 GITHUB_USER = 'GITHUB_USER'
 GITHUB_PASS = 'GITHUB_PASS'
@@ -18,15 +17,6 @@ GITHUB_ENV_VARS_DONT_EXIST = 'GitHub authentication environment variables' \
                              '[GITHUB_USER], [GITHUB_PASS], and try again.'
 
 ARGUMENT_PARSER_DESCRIPTION = 'Perform simple queries on your GitHub branches'
-
-MAX_THREADS = 'max_threads'
-GITHUB_ORG_NAME = 'github_org_name'
-
-OUTPUT_PATH = 'output path'
-DEFAULT_OUTPUT_PATH = os.path.join(tempfile.gettempdir(),
-                                   'cloudify-repo-status/report.json')
-NAME_FILTER = 'name_filter'
-ISSUE_FILTER = 'issue_filter'
 
 
 def enforce_github_env_variables():
@@ -46,33 +36,6 @@ def parse_arguments():
                         help=CONFIG_PATH_HELP_TEXT)
 
     return parser.parse_args()
-
-
-def create_query_config(args):
-    try:
-        with open(args.config_path) as config_file:
-            yaml_config = yaml.load(config_file)
-
-            max_threads = yaml_config.get(MAX_THREADS,
-                                          QueryConfig.NO_THREAD_LIMIT)
-            github_org_name = yaml_config.get(GITHUB_ORG_NAME)
-
-            filters = list()
-            filters.append(NameFilter.from_yaml(
-                yaml_config.get(NAME_FILTER, None)))
-            filters.append(JiraIssueFilter.from_yaml(
-                yaml_config.get(ISSUE_FILTER, None)))
-
-            output_path = yaml_config.get(OUTPUT_PATH,
-                                          DEFAULT_OUTPUT_PATH)
-
-            return QueryConfig(max_threads,
-                               github_org_name,
-                               filters,
-                               output_path,
-                               )
-    except IOError as error:
-        sys.exit(error)
 
 
 def main():
