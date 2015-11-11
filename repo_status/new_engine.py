@@ -4,7 +4,7 @@ import yaml
 import sys
 
 from repo_status.new_model import QueryConfig
-
+from repo_status.new_model import Filter
 
 
 GITHUB_USER = 'GITHUB_USER'
@@ -44,19 +44,22 @@ def main():
     args = parse_arguments()
     try:
         with open(args.config_path) as config_file:
-            yaml_config = yaml.load(config_file)
+            yaml_config = yaml.load(config_file['query_config'])
+            yaml_filters = yaml.load(config_file['filters'])
+
     except IOError as error:
         sys.exit(error)
 
     qc = QueryConfig.from_yaml(yaml_config)
+    filters = [Filter.create_from_yaml(yaml_filter)
+               for yaml_filter in yaml_filters]
 
-
-    # first create the QC. with a QC.from_yaml.
-    # this means that all the constants will move to QC.
-    # then create a xQuery with a factory
+    # create a xQuery with a factory
     # according to the data_type field of query_config.
     # maybe give the factory the whole QC object,
-    # and inside the factory we will extract the data_type.
+    # and inside the factory we will extract the data_type
+    # and return the corresponding xQuery that includes as a attribute
+    # the QC object that was given to the factory
 
 if __name__ == '__main__':
     main()

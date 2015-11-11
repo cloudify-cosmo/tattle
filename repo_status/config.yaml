@@ -1,8 +1,9 @@
 ---
-data_type:        branch
-max_threads:      20
-github_org_name:  cloudify_cosmo
-output_path:      /crs/output/report.json
+query_config
+    data_type:        branch
+    max_threads:      20
+    github_org_name:  cloudify_cosmo
+    output_path:      /tattle/output/report.json
 
 filters:
   - type: name
@@ -11,7 +12,7 @@ filters:
   - type: issue
     jira_team_name: cloudifysource
     jira_statuses:  [Closed, Resolved]
-    branch_to_issue_transform:
+    transform:
         base_inducer:   CFY-*\d+
         edge_case_str:  '-'
         edge_from:      CFY

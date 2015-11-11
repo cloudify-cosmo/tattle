@@ -4,6 +4,64 @@ import tempfile
 PROJECT_NAME = 'Tattle'
 
 
+class Filter(object):
+
+    NAME_FILTER = 'name'
+    ISSUE_FILTER = 'issue'
+
+    FILTERS = {NAME_FILTER: NameFilter, ISSUE_FILTER: IssueFilter}
+
+    @staticmethod
+    def create_from_yaml(self, yaml_filter):
+        filter_class = Filter.FILTERS[yaml_filter.type]
+        return filter_class(yaml_filter)
+
+
+class NameFilter(Filter):
+
+    REGEXES = 'regular_expressions'
+
+    def __init__(self, regexes):
+
+        self.regexes = regexes
+
+    @classmethod
+    def from_yaml(cls, yaml_nf):
+
+        regexes = yaml_nf.get(cls.REGEXES, list())
+
+        return cls(regexes)
+
+
+class IssueFilter(Filter):
+
+    JIRA_TEAM_NAME = 'jira_team_name'
+    JIRA_STATUSES = 'jira_statuses'
+    TRANSFORM = 'transform'
+
+    def __init__(self,
+                 jira_team_name,
+                 jira_statuses,
+                 transform):
+        self.jira_team_name = jira_team_name
+        self.jira_statuses = jira_statuses
+        self.transform = transform
+
+    @classmethod
+    def from_yaml(cls, yaml_if):
+        jira_team_name = yaml_if.get(cls.JIRA_TEAM_NAME)
+        jira_statuses = yaml_if.get(cls.JIRA_STATUSES)
+        # we should add a default value, and it will be a list of the the jira issue statuses.
+        # (see the comment under the 'ISSUE' class).
+        # in addition, maybe we should enforce the provided jira_statuses list
+        # to include only values from the jira issue status list.
+        # an implementation option for that is using a descriptor,
+        # like PerformanceTime in the old engine.py
+        transform = yaml_if.get(cls.TRANSFORM, None)
+
+        return cls(jira_team_name, jira_statuses, transform)
+
+
 class QueryConfig(object):
 
     DATA_TYPE = 'data_type'
@@ -21,14 +79,12 @@ class QueryConfig(object):
                  data_type,
                  max_threads,
                  github_org_name,
-                 output_path,
-                 filters):
+                 output_path):
 
         self.data_type = data_type
         self.max_threads = max_threads
         self.github_org_name = github_org_name
         self.output_path = output_path
-        self.filters = filters
 
     @classmethod
     def from_yaml(cls, yaml_qc):
@@ -37,7 +93,13 @@ class QueryConfig(object):
         max_threads = yaml_qc.get(cls.MAX_THREADS, cls.NO_THREAD_LIMIT)
         github_org_name = yaml_qc.get(cls.GITHUB_ORG_NAME)
         output_path = yaml_qc.get(cls.OUTPUT_PATH, cls.DEFAULT_OUTPUT_PATH)
-        # filters = [FilterFactory(yaml_filter) for yaml_filter in aml_qc.get('filters')]
+
+        return cls(data_type, max_threads, github_org_name, output_path)
+
+    def num_of_threads(self, items):
+        if self.max_threads == self.NO_THREAD_LIMIT:
+            return len(items)
+        return min(self.max_threads, len(items))
 
 
 
@@ -45,7 +107,12 @@ class QueryConfig(object):
 
 
 
-    # the former determine_max_number_of_threads will now
-    # be a property named num_of_threads that does the
-    # above calculation
-        
+class Issue(object):
+
+    # the class Issue will include a static list of all the jira status.
+    # this is because we need the whole list to be a default value in
+    # the from_yaml, so when we will filter according to the statuses,
+    # if no status list was supplied, then no issue will be filter by it's status
+
+    STATUSES = []  # TODO ask ran or idan for our list of jira statuses.
+    # TODO (cont.) remember that you can create custom statuses.
