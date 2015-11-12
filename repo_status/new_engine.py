@@ -54,6 +54,9 @@ def main():
     filters = [Filter.create_from_yaml(yaml_filter)
                for yaml_filter in yaml_filters]
 
+    query = Query.from_config(qc)
+    query.filters = filters
+
     # create a xQuery with a factory
     # according to the data_type field of query_config.
     # maybe give the factory the whole QC object,

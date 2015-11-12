@@ -12,9 +12,9 @@ class Filter(object):
 
     FILTERS = {NAME_FILTER: NameFilter, ISSUE_FILTER: IssueFilter}
 
-    @staticmethod
-    def create_from_yaml(self, yaml_filter):
-        filter_class = Filter.FILTERS[yaml_filter.type]
+    @classmethod
+    def from_yaml(cls, yaml_filter):
+        filter_class = cls.FILTERS[yaml_filter.type]
         return filter_class(yaml_filter)
 
 
@@ -112,13 +112,6 @@ class QueryConfig(object):
         return min(self.max_threads, len(items))
 
 
-
-
-
-
-
-
-
 class Issue(object):
 
     # the class Issue will include a static list of all the jira status.
@@ -128,3 +121,51 @@ class Issue(object):
 
     STATUSES = []  # TODO ask ran or idan for our list of jira statuses.
     # TODO (cont.) remember that you can create custom statuses.
+
+class Query(object):
+
+    BRANCH = 'branch'
+
+    QUERIES = {BRANCH: BranchFilter}
+
+    def __init__(self, config, filters):
+
+        self.config = config
+        self.filters = filters
+
+    @classmethod
+    def from_config(cls, config):
+
+        query_class = cls.QUERIES[config.data_type]()
+        return query_class(config)
+
+
+class BranchFilter(Filter):
+
+    pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
