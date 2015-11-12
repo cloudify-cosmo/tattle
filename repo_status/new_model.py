@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 
 PROJECT_NAME = 'Tattle'
@@ -31,6 +32,15 @@ class NameFilter(Filter):
         regexes = yaml_nf.get(cls.REGEXES, list())
 
         return cls(regexes)
+
+    def filter(self, items):
+        return filter(self.legal, items)
+
+    def legal(self, item):
+        for regex in self.regexes:
+            if re.search(regex, item.name):
+                return True
+        return False
 
 
 class IssueFilter(Filter):
@@ -100,6 +110,8 @@ class QueryConfig(object):
         if self.max_threads == self.NO_THREAD_LIMIT:
             return len(items)
         return min(self.max_threads, len(items))
+
+
 
 
 
