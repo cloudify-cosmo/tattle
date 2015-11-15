@@ -114,6 +114,17 @@ class Filter(object):
 
         self.precedence = precedence
 
+    def __eq__(self, other):
+        if type(other) is type(self):
+            return self.__dict__ == other.__dict__
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        return self.precedence < other.precedence
+
     @staticmethod
     def get_filter_class(filter_class):
 
@@ -121,7 +132,7 @@ class Filter(object):
         return filters_dict[filter_class]
 
     @classmethod
-    def create_from_yaml(cls, yaml_filter):
+    def from_yaml(cls, yaml_filter):
         filter_class = cls.get_filter_class(yaml_filter.type)
         return filter_class.from_yaml(yaml_filter)
 
@@ -244,6 +255,9 @@ class Query(object):
         query_class = cls.get_query_class(config.data_type)
         return query_class(config)
 
+    def attach_filters(self, filters):
+        self.filters = sorted(filters)
+
     def determine_number_of_threads(self, items):
 
         if self.config.max_threads == QueryConfig.NO_THREAD_LIMIT:
@@ -308,6 +322,7 @@ class BranchQuery(Query):
 
     def filter(self, branches):
         pass
+
     def get_org_branches(self, repos):
         logger.info('retrieving basic github branch info '
                     'for the {0} organization'
