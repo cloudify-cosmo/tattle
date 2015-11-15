@@ -27,12 +27,14 @@ CLOUDIFY_COSMO = 'cloudify-cosmo'
 PUBLIC_REPOS = 'public_repos'
 TOTAL_PRIVATE_REPOS = 'total_private_repos'
 REPOS_PER_PAGE = 100
-USERNAME = 'AviaE'
-PASSWORD = 'A1b2Y8z9'
-os.environ['GITHUB_USER'] = 'AviaE'  # remove this later
-os.environ['GITHUB_PASS'] = 'A1b2Y8z9'  # remove this later
+
 GITHUB_USER = 'GITHUB_USER'
 GITHUB_PASS = 'GITHUB_PASS'
+USERNAME = 'AviaE'  # remove this later
+PASSWORD = 'A1b2Y8z9'  # remove this later
+os.environ[GITHUB_USER] = USERNAME  # remove this later
+os.environ[GITHUB_PASS] = PASSWORD  # remove this later
+
 
 logger = logging.getLogger('model')
 logger.setLevel(logging.DEBUG)
@@ -385,9 +387,9 @@ class Query(object):
         r = requests.get(url,
                          auth=(os.environ[GITHUB_USER],
                                os.environ[GITHUB_PASS]))
-        json_repos = json.loads(r.text)
+        json_org = json.loads(r.text)
 
-        return json_repos[PUBLIC_REPOS] + json_repos[TOTAL_PRIVATE_REPOS]
+        return json_org[PUBLIC_REPOS] + json_org[TOTAL_PRIVATE_REPOS]
 
     def get_json_repos(self, page_number):
 
@@ -413,7 +415,7 @@ class Query(object):
 
         num_of_repos = self.get_num_of_repos()
         num_of_threads = \
-            self.determine_number_of_threads(num_of_repos / 100 + 1)
+            self.determine_number_of_threads(num_of_repos / REPOS_PER_PAGE + 1)
 
         pool = ThreadPool(num_of_threads)
         json_repos = pool.map(self.get_json_repos, range(1, num_of_threads+1))

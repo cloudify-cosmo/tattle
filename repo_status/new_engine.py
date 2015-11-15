@@ -4,6 +4,7 @@ import yaml
 import sys
 
 from repo_status.new_model import QueryConfig
+from repo_status.new_model import Query
 from repo_status.new_model import Filter
 
 
@@ -51,18 +52,11 @@ def main():
         sys.exit(error)
 
     qc = QueryConfig.from_yaml(yaml_config)
-    filters = [Filter.create_from_yaml(yaml_filter)
-               for yaml_filter in yaml_filters]
+    filters = [Filter.from_yaml(yaml_filter) for yaml_filter in yaml_filters]
 
     query = Query.from_config(qc)
     query.filters = filters
 
-    # create a xQuery with a factory
-    # according to the data_type field of query_config.
-    # maybe give the factory the whole QC object,
-    # and inside the factory we will extract the data_type
-    # and return the corresponding xQuery that includes as a attribute
-    # the QC object that was given to the factory
 
 if __name__ == '__main__':
     main()
