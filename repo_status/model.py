@@ -262,41 +262,41 @@ class Issue(object):
         pool = ThreadPool(number_of_threads)
         pool.map(self.update_branch_with_issue, branches)
 
-    # def update_branch_with_issue(self, branch):
-    #     key = self.extract_issue_key(branch)
-    #     issue = self.get_issue(key)
-    #     branch.jira_issue = issue
-    #
-    #
-    # def update_branches_with_issues(self, branches):
-    #     logger.info('retrieving JIRA issues for team {0}'
-    #                 .format(self.config.jira_team_name))
-    #     number_of_threads = self.determine_number_of_threads(len(branches))
-    #     pool = ThreadPool(number_of_threads)
-    #     pool.map(self.update_branch_with_issue, branches)
-    #
-    #
-    # def get_json_issue(self, key):
-    #     if key is None:  # because of CFY-GIVEAWAY
-    #         return key
-    #     json_issue = requests.get(JIRA_API_URL_TEMPLATE
-    #                               .format(self.config.jira_team_name) +
-    #                               key +
-    #                               '?fields=status')
-    #     return json.loads(json_issue.text)
-    #
-    # def parse_json_issue(self, json_issue):
-    #     if json_issue is None:  # because of CFY-GIVEAWAY
-    #         return json_issue
-    #
-    #     issue = Issue(json_issue['key'],
-    #                   json_issue['fields']['status']['name'])
-    #     return issue
+    def update_branch_with_issue(self, branch):
+        key = self.extract_issue_key(branch)
+        issue = self.get_issue(key)
+        branch.jira_issue = issue
 
-    # def get_issue(self, key):
-    #     json_issue = self.get_json_issue(key)
-    #     issue = self.parse_json_issue(json_issue)
-    #     return issue
+
+    def update_branches_with_issues(self, branches):
+        logger.info('retrieving JIRA issues for team {0}'
+                    .format(self.config.jira_team_name))
+        number_of_threads = self.determine_number_of_threads(len(branches))
+        pool = ThreadPool(number_of_threads)
+        pool.map(self.update_branch_with_issue, branches)
+
+
+    def get_json_issue(self, key):
+        if key is None:  # because of CFY-GIVEAWAY
+            return key
+        json_issue = requests.get(JIRA_API_URL_TEMPLATE
+                                  .format(self.config.jira_team_name) +
+                                  key +
+                                  '?fields=status')
+        return json.loads(json_issue.text)
+
+    def parse_json_issue(self, json_issue):
+        if json_issue is None:  # because of CFY-GIVEAWAY
+            return json_issue
+
+        issue = Issue(json_issue['key'],
+                      json_issue['fields']['status']['name'])
+        return issue
+
+    def get_issue(self, key):
+        json_issue = self.get_json_issue(key)
+        issue = self.parse_json_issue(json_issue)
+        return issue
 
 
 class Query(object):
