@@ -108,14 +108,15 @@ class Branch(GitHubObject):
 
 class Filter(object):
 
-    NAME_FILTER = 'name'
-    ISSUE_FILTER = 'issue'
+    @staticmethod
+    def get_filter_class(filter_class):
 
-    FILTERS = {NAME_FILTER: NameFilter, ISSUE_FILTER: IssueFilter}
+        filters_dict = {'name': NameFilter, 'issue': IssueFilter}
+        return filters_dict[filter_class]
 
     @classmethod
-    def from_yaml(cls, yaml_filter):
-        filter_class = cls.FILTERS[yaml_filter.type]
+    def create_from_yaml(cls, yaml_filter):
+        filter_class = cls.get_filter_class(yaml_filter.type)
         return filter_class.from_yaml(yaml_filter)
 
 
@@ -153,6 +154,7 @@ class IssueFilter(Filter):
                  jira_team_name,
                  jira_statuses,
                  transform):
+
         self.jira_team_name = jira_team_name
         self.jira_statuses = jira_statuses
         self.transform = transform
@@ -216,20 +218,21 @@ class Issue(object):
 
 class Query(object):
 
-    BRANCH = 'branch'
-
-    QUERIES = {BRANCH: BranchQuery}
-
     def __init__(self, config):
 
         self.config = config
         self.filters = {}
 
+    @staticmethod
+    def get_query_class(query_class):
+
+        query_dict = {'branch': BranchQuery}
+        return query_dict[query_class]
 
     @classmethod
     def from_config(cls, config):
 
-        query_class = cls.QUERIES[config.data_type]
+        query_class = cls.get_query_class(config.data_type)
         return query_class(config)
 
     def determine_number_of_threads(self, items):

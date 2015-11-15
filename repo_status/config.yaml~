@@ -7,11 +7,9 @@ query_config
 
 filters:
   - type: name
-  - precedence: 0
     regular_expressions: [CFY]
         
   - type: issue
-  - precedence: 1
     jira_team_name: cloudifysource
     jira_statuses:  [Closed, Resolved]
     transform:
