@@ -4,13 +4,12 @@ import logging
 import os
 import posixpath
 import re
-import requests
 import sys
 import tempfile
-
-
 from collections import defaultdict
 from multiprocessing.dummy import Pool as ThreadPool
+
+import requests
 
 PROJECT_NAME = 'Tattle'
 
