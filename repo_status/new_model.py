@@ -148,7 +148,7 @@ class NameFilter(Filter):
     @classmethod
     def from_yaml(cls, yaml_nf):
 
-        precedence = yaml_nf.get(cls.PRECEDENCE, 0)
+        precedence = yaml_nf.get(cls.PRECEDENCE, sys.maxint)
         regexes = yaml_nf.get(cls.REGEXES, list())
         return cls(precedence, regexes)
 
@@ -180,7 +180,7 @@ class IssueFilter(Filter):
 
     @classmethod
     def from_yaml(cls, yaml_if):
-        precedence = yaml_if.get(cls.PRECEDENCE, 0)
+        precedence = yaml_if.get(cls.PRECEDENCE, sys.maxint)
         jira_team_name = yaml_if.get(cls.JIRA_TEAM_NAME)
         jira_statuses = yaml_if.get(cls.JIRA_STATUSES, Issue.STATUSES)
         transform = yaml_if.get(cls.TRANSFORM, None)
@@ -256,7 +256,22 @@ class Query(object):
         return query_class(config)
 
     def attach_filters(self, filters):
-        self.filters = sorted(filters)
+        """
+        :param filters: a list of Filter subclasses
+        :return: the filters sorted by precedence,
+        and then by their relative order in the config.yaml file
+        """
+        self.filters = []
+        precedence_dict = {}
+
+        for f in filters:
+            if not f.precedence in precedence_dict:
+                precedence_dict[f.precedence] = [f]
+            else:
+                precedence_dict[f.precedence].append(f)
+
+        for key in sorted(precedence_dict.keys(), reverse=True):
+            self.filters.extend(precedence_dict[key])
 
     def determine_number_of_threads(self, items):
 
