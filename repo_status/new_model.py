@@ -8,6 +8,8 @@ import requests
 import sys
 import tempfile
 
+
+from collections import defaultdict
 from multiprocessing.dummy import Pool as ThreadPool
 
 PROJECT_NAME = 'Tattle'
@@ -262,15 +264,12 @@ class Query(object):
         and then by their relative order in the config.yaml file
         """
         self.filters = []
-        precedence_dict = {}
+        precedence_dict = defaultdict([])
 
         for f in filters:
-            if not f.precedence in precedence_dict:
-                precedence_dict[f.precedence] = [f]
-            else:
-                precedence_dict[f.precedence].append(f)
+            precedence_dict[f.precedence].append(f)
 
-        for key in sorted(precedence_dict.keys(), reverse=True):
+        for key in sorted(precedence_dict.keys()):
             self.filters.extend(precedence_dict[key])
 
     def determine_number_of_threads(self, items):
