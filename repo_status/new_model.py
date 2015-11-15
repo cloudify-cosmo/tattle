@@ -257,10 +257,11 @@ class Query(object):
         return query_class(config)
 
     def attach_filters(self, filters):
+
         """
-        :param filters: a list of Filter subclasses
-        :return: the filters sorted by precedence,
-        and then by their relative order in the config.yaml file
+        Sorts `filters` by precedence,
+        and then by their relative order in config.yaml
+        :param filters: a list of Filter-subclasses objects
         """
         self.filters = []
         precedence_dict = defaultdict([])
@@ -326,6 +327,7 @@ class BranchQuery(Query):
 
     def __init__(self, config):
         super(BranchQuery, self).__init__(config)
+        self.issues = None
 
     def query(self):
 
@@ -334,7 +336,12 @@ class BranchQuery(Query):
         query_branches = self.filter(branches)
 
     def filter(self, branches):
-        pass
+        for f in self.filters:
+            if isinstance(f, IssueFilter) and not self.issues:
+                self.issues = self.get_issues()
+                Branch.update_branches_with_issues(branches, self.issues)
+            branches = f.filter(branches)
+
 
     def get_org_branches(self, repos):
         logger.info('retrieving basic github branch info '
