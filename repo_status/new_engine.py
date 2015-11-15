@@ -52,7 +52,7 @@ def main():
         sys.exit(error)
 
     qc = QueryConfig.from_yaml(yaml_config)
-    filters = [Filter.from_yaml(yaml_filter) for yaml_filter in yaml_filters]
+    filters = [Filter.create_from_yaml(yaml_filter) for yaml_filter in yaml_filters]
 
     query = Query.from_config(qc)
     query.filters = filters

@@ -108,6 +108,12 @@ class Branch(GitHubObject):
 
 class Filter(object):
 
+    PRECEDENCE = 'precedence'
+
+    def __init__(self, precedence):
+
+        self.precedence = precedence
+
     @staticmethod
     def get_filter_class(filter_class):
 
@@ -124,15 +130,16 @@ class NameFilter(Filter):
 
     REGEXES = 'regular_expressions'
 
-    def __init__(self, regexes):
-
+    def __init__(self, precedence, regexes):
+        super(NameFilter, self).__init__(precedence)
         self.regexes = regexes
 
     @classmethod
     def from_yaml(cls, yaml_nf):
 
+        precedence = yaml_nf.get(cls.PRECEDENCE, 0)
         regexes = yaml_nf.get(cls.REGEXES, list())
-        return cls(regexes)
+        return cls(precedence, regexes)
 
     def filter(self, items):
         return filter(self.legal, items)
@@ -151,21 +158,23 @@ class IssueFilter(Filter):
     TRANSFORM = 'transform'
 
     def __init__(self,
+                 precedence,
                  jira_team_name,
                  jira_statuses,
                  transform):
-
+        super(IssueFilter, self).__init__(precedence)
         self.jira_team_name = jira_team_name
         self.jira_statuses = jira_statuses
         self.transform = transform
 
     @classmethod
     def from_yaml(cls, yaml_if):
+        precedence = yaml_if.get(cls.PRECEDENCE, 0)
         jira_team_name = yaml_if.get(cls.JIRA_TEAM_NAME)
         jira_statuses = yaml_if.get(cls.JIRA_STATUSES, Issue.STATUSES)
         transform = yaml_if.get(cls.TRANSFORM, None)
 
-        return cls(jira_team_name, jira_statuses, transform)
+        return cls(precedence, jira_team_name, jira_statuses, transform)
 
     def filter(self, items):
         return filter(self.legal, items)
