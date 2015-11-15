@@ -324,7 +324,7 @@ class Query(object):
 
 class BranchQuery(Query):
 
-    def __init__(self, config, repos):
+    def __init__(self, config):
         super(BranchQuery, self).__init__(config)
 
     def query(self):
