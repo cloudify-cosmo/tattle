@@ -57,6 +57,29 @@ class GitHubObject(object):
         return self.name < other.name
 
 
+class Organization(GitHubObject):
+
+    def __init__(self, name):
+        super(Organization, self).__init__(name)
+
+    def __str__(self):
+        return self.name
+
+    @staticmethod
+    def get_num_of_repos(org):
+
+        url = posixpath.join(GITHUB_API_URL,
+                             ORGS,
+                             org.name
+                             )
+        r = requests.get(url,
+                         auth=(os.environ[GITHUB_USER],
+                               os.environ[GITHUB_PASS]))
+        json_org = json.loads(r.text)
+
+        return json_org[PUBLIC_REPOS] + json_org[TOTAL_PRIVATE_REPOS]
+
+
 class Repo(GitHubObject):
 
     def __init__(self, name):
@@ -72,30 +95,16 @@ class Repo(GitHubObject):
     def from_json(cls, json_repo):
         return cls(json_repo['name'])
 
-    @staticmethod
-    def get_num_of_repos(github_org_name):
-
-        url = posixpath.join(GITHUB_API_URL,
-                             ORGS,
-                             github_org_name
-                             )
-        r = requests.get(url,
-                         auth=(os.environ[GITHUB_USER],
-                               os.environ[GITHUB_PASS]))
-        json_org = json.loads(r.text)
-
-        return json_org[PUBLIC_REPOS] + json_org[TOTAL_PRIVATE_REPOS]
-
     @classmethod
-    def get_repos(cls, org_name, max_threads=NO_THREAD_LIMIT):
+    def get_repos(cls, org, max_threads=NO_THREAD_LIMIT):
         logger.info('retrieving github repositories for the {0} organization'
-                    .format(org_name))
+                    .format(org))
         # TODO get_num_of_repos should probably be in an Organization class
-        num_of_repos = cls.get_num_of_repos(org_name)
+        num_of_repos = Organization.get_num_of_repos(org)
         num_of_threads = min(num_of_repos / REPOS_PER_PAGE+1, max_threads)
         pool = ThreadPool(num_of_threads)
 
-        json_repos = pool.map(partial(cls.get_json_repos, org_name=org_name),
+        json_repos = pool.map(partial(cls.get_json_repos, org=org),
                               range(1, num_of_threads+1)
                               )
         repos = []
@@ -106,14 +115,14 @@ class Repo(GitHubObject):
         return repos
 
     @staticmethod
-    def get_json_repos(page_number, org_name):
+    def get_json_repos(page_number, org):
 
         pagination_parameters = '?page={0}&per_page={1}' \
             .format(page_number, REPOS_PER_PAGE)
 
         url = posixpath.join(GITHUB_API_URL,
                              ORGS,
-                             org_name,
+                             org.name,
                              REPOS + pagination_parameters,
                              )
         response = requests.get(url, auth=(os.environ[GITHUB_USER],
@@ -158,14 +167,14 @@ class Branch(GitHubObject):
             format(self.name, issue, self.committer_email.encode('utf-8'))
 
     @classmethod
-    def get_org_branches(cls, repos, org_name, max_threads=NO_THREAD_LIMIT):
+    def get_org_branches(cls, repos, org, max_threads=NO_THREAD_LIMIT):
         logger.info('retrieving basic github branch info '
                     'for the {0} organization'
-                    .format(org_name))
+                    .format(org))
         num_of_threads = min(max_threads, len(repos))
         pool = ThreadPool(num_of_threads)
         json_branches_lists = pool.map(partial(cls.get_json_branches,
-                                               org_name=org_name),
+                                               org=org),
                                        repos
                                        )
         # pool.map returned a list of lists of json-formatted branches.
@@ -177,11 +186,11 @@ class Branch(GitHubObject):
         return sorted(branches)
 
     @staticmethod
-    def get_json_branches(repo_name, org_name):
+    def get_json_branches(repo_name, org):
 
         url = posixpath.join(GITHUB_API_URL,
                              REPOS,
-                             org_name,
+                             org.name,
                              repo_name,
                              BRANCHES
                              )
@@ -288,7 +297,7 @@ class QueryConfig(object):
 
     DATA_TYPE = 'data_type'
     MAX_THREADS = 'max_threads'
-    GITHUB_ORG_NAME = 'github_org_name'
+    GITHUB_ORG = 'github_org'
     OUTPUT_PATH = 'output_path'
     DEFAULT_OUTPUT_FILE_NAME = 'report.json'
     DEFAULT_OUTPUT_RELATIVE_PATH = os.path.join(PROJECT_NAME,
@@ -299,12 +308,12 @@ class QueryConfig(object):
     def __init__(self,
                  data_type,
                  max_threads,
-                 github_org_name,
+                 github_org,
                  output_path):
 
         self.data_type = data_type
         self.max_threads = max_threads
-        self.github_org_name = github_org_name
+        self.github_org = github_org
         self.output_path = output_path
 
     @classmethod
@@ -312,10 +321,13 @@ class QueryConfig(object):
 
         data_type = yaml_qc.get(cls.DATA_TYPE)
         max_threads = yaml_qc.get(cls.MAX_THREADS, NO_THREAD_LIMIT)
-        github_org_name = yaml_qc.get(cls.GITHUB_ORG_NAME)
+        github_org = yaml_qc.get(cls.GITHUB_ORG)
         output_path = yaml_qc.get(cls.OUTPUT_PATH, cls.DEFAULT_OUTPUT_PATH)
 
-        return cls(data_type, max_threads, github_org_name, output_path)
+        return cls(data_type,
+                   max_threads,
+                   Organization(github_org),
+                   output_path)
 
 
 class Query(object):
@@ -338,7 +350,6 @@ class Query(object):
         return query_class(config)
 
     def attach_filters(self, filters):
-
         """
         Sorts `filters` by precedence,
         and then by their relative order in config.yaml
@@ -364,7 +375,7 @@ class BranchQuery(Query):
 
         repos = Repo.get_repos
         branches = Branch.get_org_branches(repos,
-                                           self.config.github_org_name,
+                                           self.config.github_org,
                                            max_threads=self.config.max_threads
                                            )
         query_branches = self.filter(branches)
@@ -373,14 +384,14 @@ class BranchQuery(Query):
         for f in self.filters:
             if isinstance(f, IssueFilter) and not self.issues:
                 keys = Issue.generate_issue_keys(branches, f.transform)
-                json_issues = Issue.get_json_issues(keys,
-                                                    f.jira_team_name,
-                                                    max_threads=self.
-                                                                config.
-                                                                max_threads)
+                json_issues = \
+                    Issue.get_json_issues(keys,
+                                          f.jira_team_name,
+                                          max_threads=self.config.max_threads)
                 issues = [Issue.from_json(j_issue) for j_issue in json_issues]
                 Branch.update_branches_with_issues(branches, self.issues)
             branches = f.filter(branches)
+        return branches
 
 
 class Issue(object):
@@ -392,7 +403,7 @@ class Issue(object):
 
     def __init__(self, key, status):
 
-        # TODO think if we need the field 'related object' here
+        # TODO think if we need an attribute 'related object' here
         self.key = key
         self.status = status
         # TODO enforce `status` to be one of Issue.STATUSES
@@ -437,4 +448,3 @@ class Issue(object):
         except KeyError:
             raise KeyError('This json does not represent a valid JIRA issue')
         return cls(key, status)
-
