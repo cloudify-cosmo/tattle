@@ -99,7 +99,6 @@ class Repo(GitHubObject):
     def get_repos(cls, org, max_threads=NO_THREAD_LIMIT):
         logger.info('retrieving github repositories for the {0} organization'
                     .format(org))
-        # TODO get_num_of_repos should probably be in an Organization class
         num_of_repos = Organization.get_num_of_repos(org)
         num_of_threads = min(num_of_repos / REPOS_PER_PAGE+1, max_threads)
         pool = ThreadPool(num_of_threads)
@@ -204,12 +203,33 @@ class Branch(GitHubObject):
             branch.jira_issue = issue
 
 
+class Precedence(object):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __get__(self, instance, cls):
+        if instance is None:
+            return self
+        else:
+            return instance.__dict__[self.name]
+
+    def __set__(self, instance, value):
+
+        if not isinstance(value, int) or value <= 0:
+            raise TypeError('a precedence is a positive integer')
+
+        instance.__dict__[self.name] = value
+
+
 class Filter(object):
 
     PRECEDENCE = 'precedence'
 
+    precedence = Precedence(PRECEDENCE)
+
     def __init__(self, precedence):
-        # TODO make precedence take only positive numbers.
+        # TODO make precedence take only positive numbers (not even zero).
         # Do it with a descriptor class, like the old PerformanceTime
         self.precedence = precedence
 
@@ -394,8 +414,33 @@ class BranchQuery(Query):
         return branches
 
 
+class IssueStatus(object):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __get__(self, instance, cls):
+        if instance is None:
+            return self
+        else:
+            return instance.__dict__[self.name]
+
+    def __set__(self, instance, value):
+
+        if not isinstance(value, str):
+            raise TypeError('a JIRA issue status is expected to be a string')
+
+        if value not in Issue.STATUSES:
+            raise ValueError('Not a defined JIRA issue status')
+
+        instance.__dict__[self.name] = value
+
+
 class Issue(object):
 
+    status = IssueStatus('status')
+
+    # TODO genetare the status list according to the team's jira status list.
     STATUSES = ['Assigned', 'Build' 'Broken', 'Building', 'Closed', 'Done',
                 'Info Needed', 'In Progress', 'Open', 'Pending',
                 'Pull Request', 'Reopened', 'Resolved', 'Stopped', 'To Do'
