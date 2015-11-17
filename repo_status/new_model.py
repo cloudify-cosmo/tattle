@@ -82,18 +82,22 @@ class Organization(GitHubObject):
 
 class Repo(GitHubObject):
 
-    def __init__(self, name):
+    def __init__(self, name, organization):
         super(Repo, self).__init__(name)
+        self.organization = organization
 
     def __str__(self):
         return 'Repository: {0}'.format(self.name)
 
     def __repr__(self):
-        return 'Repo(name={0})'.format(self.name)
+        return 'Repo(name={0},organization={1})'.format(self.name,
+                                                        self.organization)
 
     @classmethod
     def from_json(cls, json_repo):
-        return cls(json_repo['name'])
+        name = json_repo['name']
+        organization = Organization(json_repo['owner']['login'])
+        return cls(name, organization)
 
     @classmethod
     def get_repos(cls, org, max_threads=NO_THREAD_LIMIT):
@@ -133,37 +137,37 @@ class Branch(GitHubObject):
 
     def __init__(self,
                  name,
-                 repo,
-                 committer_email
+                 repo
                  ):
         super(Branch, self).__init__(name)
         self.repo = repo
         self.jira_issue = None
-        self.committer_email = committer_email
+        self.committer_email = None
+        # TODO maybe add date
 
     @classmethod
     def from_json(cls, json_branch):
 
-        repo = None if json_branch[REPO] is None \
-            else Repo(json_branch[REPO]['name'])
+        name = json_branch['name']
+        (repo_name, organization) = cls.extract_repo_data(json_branch['commit']['url'])
+        repo = Repo(repo_name, organization)
 
-        committer_email = json_branch['committer_email']
-
-        # jira_issue = None if json_branch[JIRA_ISSUE] is None \
-        #     else Issue(json_branch[JIRA_ISSUE]['key'],
-        #                json_branch[JIRA_ISSUE]['status'])
-
-        return cls(json_branch['name'],
-                   repo,
-                   committer_email
-                   # jira_issue=jira_issue,
-                   )
+        return cls(name, repo)
 
     def __str__(self):
         issue = '' if self.jira_issue is None else str(self.jira_issue)
 
         return 'Branch name: {0}\n{1}Last committer: {2}\n'. \
-            format(self.name, issue, self.committer_email.encode('utf-8'))
+            format(self.name, issue)
+        # also, there is: self.committer_email.encode('utf-8')
+
+    @staticmethod
+    def extract_repo_data(branch_url):
+        url_regex = re.compile(r'https://api.github.com/repos/(.*)/(.*)/commits/(.*)')
+        groups = url_regex.findall(branch_url)
+        name = groups[0][1]
+        organization = Organization(groups[0][0])
+        return name, organization
 
     @classmethod
     def get_org_branches(cls, repos, org, max_threads=NO_THREAD_LIMIT):
@@ -172,10 +176,8 @@ class Branch(GitHubObject):
                     .format(org))
         num_of_threads = min(max_threads, len(repos))
         pool = ThreadPool(num_of_threads)
-        json_branches_lists = pool.map(partial(cls.get_json_branches,
-                                               org=org),
-                                       repos
-                                       )
+        json_branches_lists = pool.map(cls.get_json_branches, repos)
+
         # pool.map returned a list of lists of json-formatted branches.
         # below we convert it to a list of Branch objects:
         branches = []
@@ -185,12 +187,12 @@ class Branch(GitHubObject):
         return sorted(branches)
 
     @staticmethod
-    def get_json_branches(repo_name, org):
+    def get_json_branches(repo):
 
         url = posixpath.join(GITHUB_API_URL,
                              REPOS,
-                             org.name,
-                             repo_name,
+                             repo.organization.name,
+                             repo.name,
                              BRANCHES
                              )
         r = requests.get(url, auth=(os.environ[GITHUB_USER],
@@ -201,6 +203,29 @@ class Branch(GitHubObject):
     def update_branches_with_issues(branches, issues):
         for branch, issue in itertools.izip(branches, issues):
             branch.jira_issue = issue
+
+    @classmethod
+    def get_details(cls, branches, max_threads):
+        num_of_threads = min(max_threads, len(branches))
+        pool = ThreadPool(num_of_threads)
+        return pool.map(cls.fetch_details, branches)
+
+    @staticmethod
+    def fetch_details(branch):
+        url = posixpath.join(GITHUB_API_URL,
+                             REPOS,
+                             branch.repo.organization.name,
+                             branch.repo.name,
+                             BRANCHES,
+                             branch.name)
+        r = requests.get(url, auth=(os.environ[GITHUB_USER],
+                                    os.environ[GITHUB_PASS]))
+        return json.loads(r.text)
+
+    @staticmethod
+    def update_details(branch, details):
+        branch.committer_email = details['commit']['commit']['author']['email']
+
 
 
 class Precedence(object):
@@ -222,15 +247,93 @@ class Precedence(object):
         instance.__dict__[self.name] = value
 
 
+class IssueStatus(object):
+
+    def __init__(self, name):
+        self.name = name
+
+    def __get__(self, instance, cls):
+        if instance is None:
+            return self
+        else:
+            return instance.__dict__[self.name]
+
+    def __set__(self, instance, value):
+
+        if not isinstance(value, unicode):
+            raise TypeError('a JIRA issue status is expected to be a string')
+
+        if value not in Issue.STATUSES:
+            raise ValueError('Not a defined JIRA issue status')
+
+        instance.__dict__[self.name] = value
+
+
+class Issue(object):
+
+    status = IssueStatus('status')
+
+    # TODO maybe generate the status list according to the team's jira status list.
+    STATUSES = [u'Assigned', u'Build' u'Broken', u'Building', u'Closed',
+                u'Done', u'Info Needed', u'In Progress', u'Open',
+                u'Pending', u'Pull Request', u'Reopened', u'Resolved',
+                u'Stopped', u'To Do'
+                ]
+
+    def __init__(self, key, status):
+
+        # TODO think if we need an attribute 'related object' here
+        self.key = key
+        self.status = status
+
+    @staticmethod
+    def generate_issue_keys(items, transform):
+
+        names = [item.name for item in items]
+        return [transform.transform(name) for name in names]
+
+    @classmethod
+    def get_json_issues(cls, keys, jira_team_name,
+                        max_threads=NO_THREAD_LIMIT):
+
+        number_of_threads = min(max_threads, len(keys))
+        pool = ThreadPool(number_of_threads)
+        return pool.map(
+            partial(cls.get_json_issue, jira_team_name=jira_team_name),
+            keys
+        )
+
+    @staticmethod
+    def get_json_issue(key, jira_team_name):
+
+        if key is None:  # because of CFY-GIVEAWAY
+            return key
+        url = posixpath.join(JIRA_ISSUE_API_URL_TEMPLATE
+                             .format(jira_team_name),
+                             key,
+                             '?fields=status'
+                             )
+        response = requests.get(url)
+        return json.loads(response.text)
+
+    @classmethod
+    def from_json(cls, json_issue):
+        if json_issue is None:
+            return None
+        try:
+            key = json_issue['key']
+            status = json_issue['fields']['status']['name']
+        except KeyError:
+            raise KeyError('This json does not represent a valid JIRA issue')
+        return cls(key, status)
+
+
 class Filter(object):
 
     PRECEDENCE = 'precedence'
-
     precedence = Precedence(PRECEDENCE)
 
     def __init__(self, precedence):
-        # TODO make precedence take only positive numbers (not even zero).
-        # Do it with a descriptor class, like the old PerformanceTime
         self.precedence = precedence
 
     def __eq__(self, other):
@@ -252,7 +355,7 @@ class Filter(object):
 
     @classmethod
     def from_yaml(cls, yaml_filter):
-        filter_class = cls.get_filter_class(yaml_filter.type)
+        filter_class = cls.get_filter_class(yaml_filter['type'])
         return filter_class.from_yaml(yaml_filter)
 
 
@@ -302,15 +405,59 @@ class IssueFilter(Filter):
         precedence = yaml_if.get(cls.PRECEDENCE, sys.maxint)
         jira_team_name = yaml_if.get(cls.JIRA_TEAM_NAME)
         jira_statuses = yaml_if.get(cls.JIRA_STATUSES, Issue.STATUSES)
-        transform = yaml_if.get(cls.TRANSFORM, None)
+
+        yaml_transform = yaml_if.get(cls.TRANSFORM, None)
+        transform = Transform.from_yaml(yaml_transform)
 
         return cls(precedence, jira_team_name, jira_statuses, transform)
 
     def filter(self, items):
         return filter(self.legal, items)
 
-    def legal(self, issue):
-        return issue.status in self.jira_statuses
+    def legal(self, item):
+        if item.jira_issue is None:
+            return False
+        return item.jira_issue.status in self.jira_statuses
+
+
+class Transform(object):
+
+    BASE_INDUCER = 'base_inducer'
+    EDGE_CASE_STR = 'edge_case_str'
+    EDGE_FROM = 'edge_from'
+    EDGE_TO = 'edge_to'
+
+    def __init__(self, base_inducer, edge_case_str, edge_from, edge_to):
+        self.base_inducer = base_inducer
+        self.edge_case_str = edge_case_str
+        self.edge_from = edge_from
+        self.edge_to = edge_to
+
+    @classmethod
+    def from_yaml(cls, yaml_tf):
+
+        if yaml_tf is None:
+            return None
+
+        base_inducer = yaml_tf.get(cls.BASE_INDUCER)
+        edge_case_str = yaml_tf.get(cls.EDGE_CASE_STR)
+        edge_from = yaml_tf.get(cls.EDGE_FROM)
+        edge_to = yaml_tf.get(cls.EDGE_TO)
+
+        return cls(base_inducer, edge_case_str, edge_from, edge_to)
+
+    def transform(self, src):
+
+        base = re.search(self.base_inducer, src)
+        if base is not None:
+            group = base.group()
+            if self.edge_case_str not in group:
+                return group.replace(self.edge_from,
+                                     self.edge_to)
+            else:
+                return group
+        else:
+            return None
 
 
 class QueryConfig(object):
@@ -356,6 +503,7 @@ class Query(object):
 
         self.config = config
         self.filters = {}
+        self.result = None
 
     @staticmethod
     def get_query_class(query_class):
@@ -376,13 +524,23 @@ class Query(object):
         :param filters: a list of Filter-subclasses objects
         """
         self.filters = []
-        precedence_dict = defaultdict([])
+        precedence_dict = defaultdict(list)
 
         for f in filters:
             precedence_dict[f.precedence].append(f)
 
         for key in sorted(precedence_dict.keys()):
             self.filters.extend(precedence_dict[key])
+
+    def output(self):
+
+        output_path = self.config.output_path
+        output_dir = os.path.dirname(output_path)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        with open(output_path, 'w') as output_file:
+            json.dump(self.result, output_file, default=lambda x: x.__dict__)
 
 
 class BranchQuery(Query):
@@ -393,12 +551,22 @@ class BranchQuery(Query):
 
     def query(self):
 
-        repos = Repo.get_repos
+        repos = Repo.get_repos(self.config.github_org,
+                               self.config.max_threads)
+
         branches = Branch.get_org_branches(repos,
                                            self.config.github_org,
                                            max_threads=self.config.max_threads
                                            )
+
         query_branches = self.filter(branches)
+        details = Branch.get_details(query_branches,
+                                     self.config.max_threads)
+
+        for branch, branch_details in itertools.izip(query_branches, details):
+            Branch.update_details(branch, branch_details)
+
+        self.result = query_branches
 
     def filter(self, branches):
         for f in self.filters:
@@ -408,88 +576,7 @@ class BranchQuery(Query):
                     Issue.get_json_issues(keys,
                                           f.jira_team_name,
                                           max_threads=self.config.max_threads)
-                issues = [Issue.from_json(j_issue) for j_issue in json_issues]
+                self.issues = [Issue.from_json(j_issue) for j_issue in json_issues]
                 Branch.update_branches_with_issues(branches, self.issues)
             branches = f.filter(branches)
         return branches
-
-
-class IssueStatus(object):
-
-    def __init__(self, name):
-        self.name = name
-
-    def __get__(self, instance, cls):
-        if instance is None:
-            return self
-        else:
-            return instance.__dict__[self.name]
-
-    def __set__(self, instance, value):
-
-        if not isinstance(value, str):
-            raise TypeError('a JIRA issue status is expected to be a string')
-
-        if value not in Issue.STATUSES:
-            raise ValueError('Not a defined JIRA issue status')
-
-        instance.__dict__[self.name] = value
-
-
-class Issue(object):
-
-    status = IssueStatus('status')
-
-    # TODO genetare the status list according to the team's jira status list.
-    STATUSES = ['Assigned', 'Build' 'Broken', 'Building', 'Closed', 'Done',
-                'Info Needed', 'In Progress', 'Open', 'Pending',
-                'Pull Request', 'Reopened', 'Resolved', 'Stopped', 'To Do'
-                ]
-
-    def __init__(self, key, status):
-
-        # TODO think if we need an attribute 'related object' here
-        self.key = key
-        self.status = status
-        # TODO enforce `status` to be one of Issue.STATUSES
-
-    @staticmethod
-    def generate_issue_keys(items, transform):
-
-        names = [item.name for item in items]
-        return [transform.transform(name) for name in names]
-
-    @classmethod
-    def get_json_issues(cls, keys, jira_team_name,
-                        max_threads=NO_THREAD_LIMIT):
-
-        number_of_threads = min(max_threads, len(keys))
-        pool = ThreadPool(number_of_threads)
-        return pool.map(
-            partial(cls.get_json_issue, jira_team_name=jira_team_name),
-            keys
-            )
-
-    @staticmethod
-    def get_json_issue(key, jira_team_name):
-        # TODO understand if the comment below is needed
-        # if key is None:  # because of CFY-GIVEAWAY
-        #     return key
-        url = posixpath.join(JIRA_ISSUE_API_URL_TEMPLATE
-                             .format(jira_team_name),
-                             key,
-                             '?fields=status'
-                             )
-        response = requests.get(url)
-        return json.loads(response.text)
-
-    @classmethod
-    def from_json(cls, json_issue):
-        if json_issue is None:
-            return None
-        try:
-            key = json_issue['key']
-            status = json_issue
-        except KeyError:
-            raise KeyError('This json does not represent a valid JIRA issue')
-        return cls(key, status)

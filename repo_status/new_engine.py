@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 import yaml
 import sys
 
@@ -19,14 +20,14 @@ GITHUB_ENV_VARS_DONT_EXIST = 'GitHub authentication environment variables' \
 
 ARGUMENT_PARSER_DESCRIPTION = 'Perform simple queries on your GitHub branches'
 
+PERFORMANCE_PRECISION = 3
+
 
 def enforce_github_env_variables():
 
-    try:
-        user = os.environ[GITHUB_USER]  # not assigning these causes a warning
-        password = os.environ[GITHUB_PASS]
-    except KeyError:
-        sys.exit(GITHUB_ENV_VARS_DONT_EXIST)
+    if not os.environ[GITHUB_USER] or not GITHUB_PASS:
+
+        raise KeyError(GITHUB_ENV_VARS_DONT_EXIST)
 
 
 def parse_arguments():
@@ -39,23 +40,33 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def main():
+def print_performance(start, end):
 
-    # enforce_github_env_variables()
+    total_time = str(round(end - start, PERFORMANCE_PRECISION))
+    print 'total time: {} seconds'.format(total_time)
+
+
+def main():
+    start = time.time()
+    enforce_github_env_variables()
     args = parse_arguments()
     try:
         with open(args.config_path) as config_file:
-            yaml_config = yaml.load(config_file['query_config'])
-            yaml_filters = yaml.load(config_file['filters'])
-
+            yaml_contents = yaml.load(config_file)
     except IOError as error:
         sys.exit(error)
+
+    yaml_config = yaml_contents['query_config']
+    yaml_filters = yaml_contents['filters']
 
     qc = QueryConfig.from_yaml(yaml_config)
     filters = [Filter.from_yaml(yaml_filter) for yaml_filter in yaml_filters]
 
     query = Query.from_config(qc)
     query.attach_filters(filters)
+    query.query()
+    query.output()
+    print_performance(start, time.time())
 
 
 if __name__ == '__main__':

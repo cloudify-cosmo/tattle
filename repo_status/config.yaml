@@ -1,22 +1,22 @@
 ---
-query_config
+query_config:
+    max_threads:      100
     data_type:        branch
-    max_threads:      20
-    github_org_name:  cloudify_cosmo
-    output_path:      /tattle/output/report.json
+    github_org:       cloudify-cosmo
+    output_path:      /home/avia/tattle/output/report.json
 
 filters:
   - type: name
-  - precedence: 0
+    precedence: 1
     regular_expressions: [CFY]
         
   - type: issue
-  - precedence: 1
+    precedence: 2
     jira_team_name: cloudifysource
     jira_statuses:  [Closed, Resolved]
     transform:
         base_inducer:   CFY-*\d+
         edge_case_str:  '-'
         edge_from:      CFY
-        edge_to:        -CFY
+        edge_to:        CFY-
 ...
