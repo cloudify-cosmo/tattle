@@ -1,2 +1,3 @@
 # tattle
-Tattle!
+A tool for finding stale branches and more..
+
