@@ -206,12 +206,17 @@ class Branch(GitHubObject):
 
     @classmethod
     def get_details(cls, branches, max_threads):
+        if branches:
+            logger.info('retrieving detailed github branch info '
+                        'for the {0} organization'
+                        .format(branches[0].repo.organization.name))
         num_of_threads = min(max_threads, len(branches))
         pool = ThreadPool(num_of_threads)
         return pool.map(cls.fetch_details, branches)
 
     @staticmethod
     def fetch_details(branch):
+
         url = posixpath.join(GITHUB_API_URL,
                              REPOS,
                              branch.repo.organization.name,
@@ -225,7 +230,6 @@ class Branch(GitHubObject):
     @staticmethod
     def update_details(branch, details):
         branch.committer_email = details['commit']['commit']['author']['email']
-
 
 
 class Precedence(object):
@@ -282,7 +286,6 @@ class Issue(object):
 
     def __init__(self, key, status):
 
-        # TODO think if we need an attribute 'related object' here
         self.key = key
         self.status = status
 
@@ -298,6 +301,7 @@ class Issue(object):
 
         number_of_threads = min(max_threads, len(keys))
         pool = ThreadPool(number_of_threads)
+
         return pool.map(
             partial(cls.get_json_issue, jira_team_name=jira_team_name),
             keys
@@ -538,7 +542,7 @@ class Query(object):
         output_dir = os.path.dirname(output_path)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-
+        # TODO the output should preformed with a logger.
         with open(output_path, 'w') as output_file:
             json.dump(self.result, output_file, default=lambda x: x.__dict__)
 

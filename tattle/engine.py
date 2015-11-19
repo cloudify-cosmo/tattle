@@ -4,9 +4,9 @@ import time
 import yaml
 import sys
 
-from repo_status.new_model import QueryConfig
-from repo_status.new_model import Query
-from repo_status.new_model import Filter
+from tattle.model import QueryConfig
+from tattle.model import Query
+from tattle.model import Filter
 
 
 GITHUB_USER = 'GITHUB_USER'
@@ -25,7 +25,7 @@ PERFORMANCE_PRECISION = 3
 
 def enforce_github_env_variables():
 
-    if not os.environ[GITHUB_USER] or not GITHUB_PASS:
+    if not os.environ[GITHUB_USER] or not os.environ[GITHUB_PASS]:
 
         raise KeyError(GITHUB_ENV_VARS_DONT_EXIST)
 
