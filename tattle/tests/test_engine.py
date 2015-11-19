@@ -1,9 +1,11 @@
+import sys
 import unittest
 
 import mock
 
 from tattle import engine
 from tattle.engine import enforce_github_env_variables
+from tattle.engine import parse_arguments
 
 
 class GitHubEnvVariablesTestCase(unittest.TestCase):
@@ -26,19 +28,17 @@ class GitHubEnvVariablesTestCase(unittest.TestCase):
         try:
             enforce_github_env_variables()
         except KeyError:
-            self.fail("Environment variables {0}, {1} should exist, "
-                      "but they don\'t.".format(engine.GITHUB_USER,
-                                               engine.GITHUB_PASS)
+            self.fail('Environment variables {0}, {1} should exist, '
+                      'but they don\'t.'.format(engine.GITHUB_USER,
+                                                engine.GITHUB_PASS)
                       )
 
 
 class ParseArgumentsTestCase(unittest.TestCase):
 
-    def test_with_no_arguments(self):
-        pass
+    @mock.patch.object(sys, 'argv', new=['name', '--config-path=/dir/config.yaml'])
+    def test_getting_the_file_path(self):
+        args = parse_arguments()
+        self.assertEqual(args.config_path, '/dir/config.yaml',
+                         msg='parsed the wrong config file path.')
 
-    def test_with_extra_arguments(self):
-        pass
-
-    def test_with_correct_arguments(self):
-        pass

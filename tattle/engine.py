@@ -33,9 +33,12 @@ def enforce_github_env_variables():
 def parse_arguments():
 
     parser = argparse.ArgumentParser(description=ARGUMENT_PARSER_DESCRIPTION)
-    parser.add_argument('-c', CONFIG_PATH_COMMAND_NAME,
+    # TODO the usage line shows
+    parser.add_argument(CONFIG_PATH_COMMAND_NAME, '-c',
+                        metavar='<PATH_TO_CONFIG>',
                         type=str,
-                        help=CONFIG_PATH_HELP_TEXT)
+                        help=CONFIG_PATH_HELP_TEXT,
+                        required=True)
 
     return parser.parse_args()
 
@@ -47,14 +50,17 @@ def print_performance(start, end):
 
 
 def main():
+
     start = time.time()
     enforce_github_env_variables()
     args = parse_arguments()
+
     try:
         with open(args.config_path) as config_file:
             yaml_contents = yaml.load(config_file)
-    except IOError as error:
-        sys.exit(error)
+    except IOError:
+        sys.exit('The config.yaml path you provided, `{0}`, does not '
+                 'lead to an existing file.'.format(args.config_path))
 
     yaml_config = yaml_contents['query_config']
     yaml_filters = yaml_contents['filters']
