@@ -89,7 +89,7 @@ class Repo(GitHubObject):
         self.organization = organization
 
     def __str__(self):
-        return 'Repository: {0}'.format(self.name)
+        return self.name
 
     def __repr__(self):
         return 'Repo(name={0},organization={1})'.format(self.name,
