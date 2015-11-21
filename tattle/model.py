@@ -84,7 +84,7 @@ class Organization(GitHubObject):
 
 class Repo(GitHubObject):
 
-    def __init__(self, name, organization):
+    def __init__(self, name, organization=None):
         super(Repo, self).__init__(name)
         self.organization = organization
 
@@ -151,7 +151,7 @@ class Branch(GitHubObject):
 
         name = json_branch['name']
         (repo_name, organization) = cls.extract_repo_data(json_branch['commit']['url'])
-        repo = Repo(repo_name, organization)
+        repo = Repo(repo_name, organization=organization)
 
         return cls(name, repo)
 
