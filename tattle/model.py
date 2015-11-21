@@ -14,8 +14,6 @@ import requests
 
 PROJECT_NAME = 'Tattle'
 
-GITHUB_USER = 'GITHUB_USER'
-GITHUB_PASS = 'GITHUB_PASS'
 REPOS_PER_PAGE = 100
 NO_THREAD_LIMIT = sys.maxint
 
@@ -38,6 +36,12 @@ info_formatter = \
     logging.Formatter('%(asctime)s - %(message)s...', '%Y-%m-%d %H:%M:%S')
 ish.setFormatter(info_formatter)
 logger.addHandler(ish)
+
+
+def get_json(url, auth=None):
+
+    response = requests.get(url, auth=auth)
+    return json.loads(response.text)
 
 
 class GitHubObject(object):
@@ -72,10 +76,8 @@ class Organization(GitHubObject):
                              ORGS,
                              org.name
                              )
-        r = requests.get(url,
-                         auth=(os.environ[GITHUB_USER],
-                               os.environ[GITHUB_PASS]))
-        json_org = json.loads(r.text)
+
+        json_org = get_json(url, auth=QueryConfig.github_credentials())
 
         return json_org[PUBLIC_REPOS] + json_org[TOTAL_PRIVATE_REPOS]
 
@@ -128,9 +130,8 @@ class Repo(GitHubObject):
                              org.name,
                              REPOS + pagination_parameters,
                              )
-        response = requests.get(url, auth=(os.environ[GITHUB_USER],
-                                           os.environ[GITHUB_PASS]))
-        return json.loads(response.text)
+
+        return get_json(url, auth=QueryConfig.github_credentials())
 
 
 class Branch(GitHubObject):
@@ -195,9 +196,8 @@ class Branch(GitHubObject):
                              repo.name,
                              BRANCHES
                              )
-        r = requests.get(url, auth=(os.environ[GITHUB_USER],
-                                    os.environ[GITHUB_PASS]))
-        return json.loads(r.text)
+
+        return get_json(url, auth=QueryConfig.github_credentials())
 
     @staticmethod
     def update_branches_with_issues(branches, issues):
@@ -223,9 +223,8 @@ class Branch(GitHubObject):
                              branch.repo.name,
                              BRANCHES,
                              branch.name)
-        r = requests.get(url, auth=(os.environ[GITHUB_USER],
-                                    os.environ[GITHUB_PASS]))
-        return json.loads(r.text)
+
+        return get_json(url, auth=QueryConfig.github_credentials())
 
     @staticmethod
     def update_details(branch, details):
@@ -317,8 +316,7 @@ class Issue(object):
                              key,
                              '?fields=status'
                              )
-        response = requests.get(url)
-        return json.loads(response.text)
+        return get_json(url)
 
     @classmethod
     def from_json(cls, json_issue):
@@ -475,6 +473,11 @@ class QueryConfig(object):
                                                 DEFAULT_OUTPUT_FILE_NAME)
     DEFAULT_OUTPUT_PATH = os.path.join(tempfile.gettempdir(),
                                        DEFAULT_OUTPUT_RELATIVE_PATH)
+
+    @staticmethod
+    def github_credentials():
+        return (os.environ['GITHUB_USER'],
+                os.environ['GITHUB_PASS'])
 
     def __init__(self,
                  data_type,
