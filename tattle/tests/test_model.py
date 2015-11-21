@@ -27,6 +27,10 @@ class GitHubObjectTestCase(unittest.TestCase):
 
 class OrganizationTest(unittest.TestCase):
 
+    def test_str(self):
+        self.assertEqual(str(Organization('org_name')), 'org_name')
+        self.assertNotEqual(str(Organization('org_name')), 'another_org_name')
+
     @mock.patch('tattle.model.get_json')
     @mock.patch('os.environ')
     def test_get_num_of_repos(self, mock_environ, mock_get_json):
