@@ -44,15 +44,44 @@ def get_json(url, auth=None):
     return json.loads(response.text)
 
 
-# def generate_github_api_url(type, org_name='', repo_name='', branch_name='', page_number=None):
-#
-#     urls = {'organization' : posixpath.join(ORGS, org_name),
-#             'repos'        : posixpath.join(ORGS, org_name, REPOS) +}
-
-
 def pagination_format(page_number, items_per_page):
     return '?page={0}&per_page={1}'.format(page_number, items_per_page)
 
+
+def generate_github_api_url(request_type,
+                            org_name='',
+                            repo_name='',
+                            branch_name='',
+                            page_number=None,
+                            items_per_page=None):
+
+    urls = {'organization':    posixpath.join(ORGS,
+                                              org_name
+                                              ),
+
+            # '{path}?{params}'.format()
+            'repos':           posixpath.join(ORGS,
+                                              org_name,
+                                              REPOS
+                                              ) +
+                               pagination_format(page_number,
+                                                 items_per_page),
+
+            'basic_branches':  posixpath.join(REPOS,
+                                              org_name,
+                                              repo_name,
+                                              BRANCHES
+                                              ),
+
+            'detailed_branch': posixpath.join(REPOS,
+                                              org_name,
+                                              repo_name,
+                                              BRANCHES,
+                                              branch_name)
+            }
+
+    return posixpath.join(GITHUB_API_URL,
+                          urls[request_type])
 
 
 class GitHubObject(object):
