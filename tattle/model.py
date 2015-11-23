@@ -14,16 +14,16 @@ import requests
 
 PROJECT_NAME = 'Tattle'
 
-REPOS_PER_PAGE = 100
+ITEMS_PER_PAGE = 100
 NO_THREAD_LIMIT = sys.maxint
 
 GITHUB_API_URL = 'https://api.github.com/'
 ORGS = 'orgs'
 REPOS = 'repos'
-REPO = 'repo'
+BRANCHES = 'branches'
+
 PUBLIC_REPOS = 'public_repos'
 TOTAL_PRIVATE_REPOS = 'total_private_repos'
-BRANCHES = 'branches'
 
 JIRA_ISSUE_API_URL_TEMPLATE = 'https://{0}.atlassian.net/rest/api/2/issue/'
 JIRA_ISSUE = 'jira_issue'
@@ -44,8 +44,8 @@ def get_json(url, auth=None):
     return json.loads(response.text)
 
 
-def pagination_format(page_number, items_per_page):
-    return '?page={0}&per_page={1}'.format(page_number, items_per_page)
+def pagination_format(page_number):
+    return '?page={0}&per_page={1}'.format(page_number, ITEMS_PER_PAGE)
 
 
 def generate_github_api_url(request_type,
@@ -53,21 +53,19 @@ def generate_github_api_url(request_type,
                             repo_name='',
                             branch_name='',
                             page_number=None,
-                            items_per_page=None):
+                            ):
 
     urls = {'organization':    posixpath.join(ORGS,
                                               org_name
                                               ),
 
-            # '{path}?{params}'.format()
             'repos':           posixpath.join(ORGS,
                                               org_name,
                                               REPOS
                                               ) +
-                               pagination_format(page_number,
-                                                 items_per_page),
+                               pagination_format(page_number),
 
-            'basic_branches':  posixpath.join(REPOS,
+            'list_branches':   posixpath.join(REPOS,
                                               org_name,
                                               repo_name,
                                               BRANCHES
@@ -112,10 +110,7 @@ class Organization(GitHubObject):
     @staticmethod
     def get_num_of_repos(org):
 
-        url = posixpath.join(GITHUB_API_URL,
-                             ORGS,
-                             org.name
-                             )
+        url = generate_github_api_url('organization', org_name=org.name)
 
         json_org = get_json(url, auth=QueryConfig.github_credentials())
 
@@ -146,7 +141,7 @@ class Repo(GitHubObject):
         logger.info('retrieving github repositories for the {0} organization'
                     .format(org))
         num_of_repos = Organization.get_num_of_repos(org)
-        num_of_threads = min(num_of_repos / REPOS_PER_PAGE+1, max_threads)
+        num_of_threads = min(num_of_repos / ITEMS_PER_PAGE + 1, max_threads)
         pool = ThreadPool(num_of_threads)
 
         json_repos = pool.map(partial(cls.get_json_repos, org=org),
@@ -162,14 +157,10 @@ class Repo(GitHubObject):
     @staticmethod
     def get_json_repos(page_number, org):
 
-        pagination_parameters = '?page={0}&per_page={1}' \
-            .format(page_number, REPOS_PER_PAGE)
-
-        url = posixpath.join(GITHUB_API_URL,
-                             ORGS,
-                             org.name,
-                             REPOS + pagination_parameters,
-                             )
+        url = generate_github_api_url('repos',
+                                      org_name=org.name,
+                                      page_number=page_number,
+                                      )
 
         return get_json(url, auth=QueryConfig.github_credentials())
 
@@ -230,12 +221,9 @@ class Branch(GitHubObject):
     @staticmethod
     def get_json_branches(repo):
 
-        url = posixpath.join(GITHUB_API_URL,
-                             REPOS,
-                             repo.organization.name,
-                             repo.name,
-                             BRANCHES
-                             )
+        url = generate_github_api_url('list_branches',
+                                      org_name=repo.organization.name,
+                                      repo_name=repo.name)
 
         return get_json(url, auth=QueryConfig.github_credentials())
 
@@ -257,12 +245,11 @@ class Branch(GitHubObject):
     @staticmethod
     def fetch_details(branch):
 
-        url = posixpath.join(GITHUB_API_URL,
-                             REPOS,
-                             branch.repo.organization.name,
-                             branch.repo.name,
-                             BRANCHES,
-                             branch.name)
+        url = generate_github_api_url('detailed_branch',
+                                      org_name=branch.repo.organization.name,
+                                      repo_name=branch.repo.name,
+                                      branch_name=branch.name
+                                      )
 
         return get_json(url, auth=QueryConfig.github_credentials())
 
