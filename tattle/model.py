@@ -1,6 +1,7 @@
 import itertools
 import json
 import logging
+import math
 import os
 import posixpath
 import re
@@ -36,6 +37,15 @@ info_formatter = \
     logging.Formatter('%(asctime)s - %(message)s...', '%Y-%m-%d %H:%M:%S')
 ish.setFormatter(info_formatter)
 logger.addHandler(ish)
+
+
+def determine_num_of_threads(max_threads, num_of_items, per_page=1):
+    requested_threads = int(math.ceil(num_of_items / float(per_page)))
+    return min(max_threads, requested_threads)
+
+
+def create_thread_pool(number_of_threads):
+    return ThreadPool(number_of_threads)
 
 
 def get_json(url, auth=None):
@@ -140,12 +150,15 @@ class Repo(GitHubObject):
     def get_repos(cls, org, max_threads=NO_THREAD_LIMIT):
         logger.info('retrieving github repositories for the {0} organization'
                     .format(org))
+
         num_of_repos = Organization.get_num_of_repos(org)
-        num_of_threads = min(num_of_repos / ITEMS_PER_PAGE + 1, max_threads)
-        pool = ThreadPool(num_of_threads)
+        num_of_threads = determine_num_of_threads(max_threads,
+                                                  num_of_repos,
+                                                  per_page=ITEMS_PER_PAGE)
+        pool = create_thread_pool(num_of_threads)
 
         json_repos = pool.map(partial(cls.get_json_repos, org=org),
-                              range(1, num_of_threads+1)
+                              range(1, num_of_threads + 1)
                               )
         repos = []
         for list_of_json_repos in json_repos:
@@ -206,8 +219,9 @@ class Branch(GitHubObject):
         logger.info('retrieving basic github branch info '
                     'for the {0} organization'
                     .format(org))
-        num_of_threads = min(max_threads, len(repos))
-        pool = ThreadPool(num_of_threads)
+        num_of_threads = determine_num_of_threads(max_threads, len(repos))
+        pool = create_thread_pool(num_of_threads)
+
         json_branches_lists = pool.map(cls.get_json_branches, repos)
 
         # pool.map returned a list of lists of json-formatted branches.
@@ -238,8 +252,10 @@ class Branch(GitHubObject):
             logger.info('retrieving detailed github branch info '
                         'for the {0} organization'
                         .format(branches[0].repo.organization.name))
-        num_of_threads = min(max_threads, len(branches))
-        pool = ThreadPool(num_of_threads)
+
+        num_of_threads = determine_num_of_threads(max_threads, len(branches))
+        pool = create_thread_pool(num_of_threads)
+
         return pool.map(cls.fetch_details, branches)
 
     @staticmethod
@@ -325,8 +341,8 @@ class Issue(object):
     def get_json_issues(cls, keys, jira_team_name,
                         max_threads=NO_THREAD_LIMIT):
 
-        number_of_threads = min(max_threads, len(keys))
-        pool = ThreadPool(number_of_threads)
+        number_of_threads = determine_num_of_threads(max_threads, len(keys))
+        pool = create_thread_pool(number_of_threads)
 
         return pool.map(
             partial(cls.get_json_issue, jira_team_name=jira_team_name),
