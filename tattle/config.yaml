@@ -1,6 +1,6 @@
 ---
 query_config:
-    max_threads:      100
+    max_threads:      120
     data_type:        branch
     github_org:       cloudify-cosmo
     output_path:      /home/avia/tattle/output/report.json
