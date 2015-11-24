@@ -129,15 +129,15 @@ class Organization(GitHubObject):
 
 class Repo(GitHubObject):
 
-    def __init__(self, name, organization=None):
+    def __init__(self, name, org=None):
         super(Repo, self).__init__(name)
-        self.organization = organization
+        self.organization = org
 
     def __str__(self):
         return self.name
 
     def __repr__(self):
-        return 'Repo(name={0},organization={1})'.format(self.name,
+        return 'Repo(name={0},org={1})'.format(self.name,
                                                         self.organization)
 
     @classmethod
@@ -190,21 +190,17 @@ class Branch(GitHubObject):
         self.committer_email = None
         # TODO maybe add date
 
+    def __str__(self):
+        return self.name
+
     @classmethod
     def from_json(cls, json_branch):
 
         name = json_branch['name']
         (repo_name, organization) = cls.extract_repo_data(json_branch['commit']['url'])
-        repo = Repo(repo_name, organization=organization)
+        repo = Repo(repo_name, org=organization)
 
         return cls(name, repo)
-
-    def __str__(self):
-        issue = '' if self.jira_issue is None else str(self.jira_issue)
-
-        return 'Branch name: {0}\n{1}Last committer: {2}\n'. \
-            format(self.name, issue)
-        # also, there is: self.committer_email.encode('utf-8')
 
     @staticmethod
     def extract_repo_data(branch_url):
