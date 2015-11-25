@@ -182,11 +182,11 @@ class Branch(GitHubObject):
 
     def __init__(self,
                  name,
-                 repo
-                 ):
+                 repo,
+                 jira_issue=None):
         super(Branch, self).__init__(name)
         self.repo = repo
-        self.jira_issue = None
+        self.jira_issue = jira_issue
         self.committer_email = None
         # TODO maybe add date
 
