@@ -291,6 +291,18 @@ class BranchTestCase(unittest.TestCase):
         self.assertRaises(KeyError, Branch.update_details, branch, details)
 
 
+class PrecedenceTestCase(unittest.TestCase):
+
+    def test_precedence_with_float(self):
+        self.assertRaises(TypeError, Precedence, 1.5)
+
+    def test_precedence_with_zero(self):
+        self.assertRaises(ValueError, Precedence, 0)
+
+    def test_precedence_with_negative(self):
+        self.assertRaises(ValueError, Precedence, -1)
+
+
 
 
 
