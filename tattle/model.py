@@ -273,25 +273,14 @@ class Branch(GitHubObject):
 
 class Precedence(object):
 
-    def __init__(self, name):
-        self.name = name
-
-    def __get__(self, instance, cls):
-        if instance is None:
-            return self
-        else:
-            return instance.__dict__[self.name]
-
-    def __set__(self, instance, value):
-
+    def __init__(self, value):
         if not isinstance(value, int):
             raise TypeError('a precedence is a positive integer')
 
         if value <= 0:
             raise ValueError('a precedence is a positive integer')
 
-
-        instance.__dict__[self.name] = value
+        self.value = value
 
 
 class IssueStatus(object):
@@ -388,7 +377,6 @@ class Issue(object):
 class Filter(object):
 
     PRECEDENCE = 'precedence'
-    precedence = Precedence(PRECEDENCE)
 
     def __init__(self, precedence):
         self.precedence = precedence
@@ -600,9 +588,14 @@ class Query(object):
         output_dir = os.path.dirname(output_path)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-        # TODO the output should preformed with a logger.
-        with open(output_path, 'w') as output_file:
-            json.dump(self.result, output_file, default=lambda x: x.__dict__)
+
+        file_logger = logging.getLogger('model')
+        fh = logging.FileHandler(self.config.output_path)
+        fh.setLevel(logging.INFO)
+        file_logger.addHandler(fh)
+        file_logger.log(logging.INFO, json.dumps(self.result,
+                                                 default=lambda x: x.__dict__)
+                        )
 
 
 class BranchQuery(Query):

@@ -33,7 +33,6 @@ def enforce_github_env_variables():
 def parse_arguments():
 
     parser = argparse.ArgumentParser(description=ARGUMENT_PARSER_DESCRIPTION)
-    # TODO the usage line shows
     parser.add_argument(CONFIG_PATH_COMMAND_NAME, '-c',
                         metavar='<PATH_TO_CONFIG>',
                         type=str,
