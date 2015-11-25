@@ -284,8 +284,12 @@ class Precedence(object):
 
     def __set__(self, instance, value):
 
-        if not isinstance(value, int) or value <= 0:
+        if not isinstance(value, int):
             raise TypeError('a precedence is a positive integer')
+
+        if value <= 0:
+            raise ValueError('a precedence is a positive integer')
+
 
         instance.__dict__[self.name] = value
 
