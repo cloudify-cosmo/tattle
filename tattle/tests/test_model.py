@@ -289,7 +289,6 @@ class BranchTestCase(unittest.TestCase):
 
         self.assertRaises(KeyError, Branch.update_details, branch, details)
 
-    
 
 
 
