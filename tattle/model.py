@@ -302,7 +302,7 @@ class IssueStatus(object):
 
     def __set__(self, instance, value):
 
-        if not isinstance(value, unicode):
+        if not isinstance(value, (unicode, str)):
             raise TypeError('a JIRA issue status is expected to be a string')
 
         if value not in Issue.STATUSES:
