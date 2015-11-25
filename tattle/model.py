@@ -271,16 +271,45 @@ class Branch(GitHubObject):
         branch.committer_email = details['commit']['commit']['author']['email']
 
 
+# class Precedence(object):
+#
+#     def __init__(self, name):
+#         self.name = name
+#
+#     def __get__(self, instance, cls):
+#         if instance is None:
+#             return self
+#         else:
+#             return instance.__dict__[self.name]
+#
+#     def __set__(self, instance, value):
+#
+#         if not isinstance(value, int):
+#             raise TypeError('a precedence is a positive integer')
+#
+#         if value <= 0:
+#             raise ValueError('a precedence is a positive integer')
+#
+#         instance.__dict__[self.name] = value
+#
+
 class Precedence(object):
 
     def __init__(self, value):
+        self._value = value
+
+    def __get__(self, instance, cls):
+        return self._value
+
+    def __set__(self, instance, value):
+
         if not isinstance(value, int):
             raise TypeError('a precedence is a positive integer')
 
         if value <= 0:
             raise ValueError('a precedence is a positive integer')
 
-        self.value = value
+        self._value = value
 
 
 class IssueStatus(object):
@@ -415,7 +444,7 @@ class NameFilter(Filter):
     @classmethod
     def from_yaml(cls, yaml_nf):
 
-        precedence = yaml_nf.get(cls.PRECEDENCE, sys.maxint)
+        precedence = Precedence(yaml_nf.get(cls.PRECEDENCE, sys.maxint))
         regexes = yaml_nf.get(cls.REGEXES, list())
         return cls(precedence, regexes)
 
@@ -447,7 +476,7 @@ class IssueFilter(Filter):
 
     @classmethod
     def from_yaml(cls, yaml_if):
-        precedence = yaml_if.get(cls.PRECEDENCE, sys.maxint)
+        precedence = Precedence(yaml_if.get(cls.PRECEDENCE, sys.maxint))
         jira_team_name = yaml_if.get(cls.JIRA_TEAM_NAME)
         jira_statuses = yaml_if.get(cls.JIRA_STATUSES, Issue.STATUSES)
 
@@ -552,7 +581,7 @@ class Query(object):
     def __init__(self, config):
 
         self.config = config
-        self.filters = {}
+        self.filters = []
         self.result = None
 
     @staticmethod
@@ -573,7 +602,6 @@ class Query(object):
         and then by their relative order in config.yaml
         :param filters: a list of Filter-subclasses objects
         """
-        self.filters = []
         precedence_dict = defaultdict(list)
 
         for f in filters:
