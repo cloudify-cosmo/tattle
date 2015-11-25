@@ -8,6 +8,7 @@ from tattle.model import GitHubObject
 from tattle.model import Organization
 from tattle.model import Repo
 from tattle.model import Branch
+from tattle.model import Issue
 
 
 class GitHubApiUrlTestCase(unittest.TestCase):
@@ -129,22 +130,20 @@ class RepoTest(unittest.TestCase):
         self.assertEqual(repo, Repo.from_json(json_repo))
 
     @mock.patch('tattle.model.logging.Logger.info')
-    @mock.patch('tattle.model.Organization.get_num_of_repos')
-    @mock.patch('tattle.model.QueryConfig.github_credentials')
-    @mock.patch('tattle.model.Repo.get_json_repos')
-    def test_get_repos(self, mock_json_repos, *args):
-
-        mock_json_repos.return_value = \
-            [{'name': 'cloudify-manager',
-               'owner': {'login': 'cloudify-cosmo'}},
-              {'name': 'cloudify-ui',
-               'owner': {'login': 'cloudify-cosmo'}}]
+    @mock.patch('tattle.model.Organization.get_num_of_repos', return_value=1)
+    @mock.patch('multiprocessing.pool.ThreadPool.map')
+    def test_get_repos(self, mock_map, *args):
+        mock_map.return_value = \
+            [[{'name': 'cloudify-manager',
+               'owner': {'login': 'cloudify-cosmo'}}],
+              [{'name': 'cloudify-ui',
+               'owner': {'login': 'cloudify-cosmo'}}]]
 
         org = Organization('cloudify-cosmo')
-        result = [Repo('cloudify-manager', org=org),
+        expected_result = [Repo('cloudify-manager', org=org),
                   Repo('cloudify-ui', org=org)]
-
-        self.assertEqual(Repo.get_repos(org), result)
+        result = Repo.get_repos(org)
+        self.assertEqual(result, expected_result)
 
 
 class BranchTestCase(unittest.TestCase):
@@ -174,13 +173,123 @@ class BranchTestCase(unittest.TestCase):
         self.assertEqual(model.Branch.extract_repo_data(branch_url),
                          expected_extraction)
 
+    @mock.patch('tattle.model.logging.Logger.info')
+    @mock.patch('multiprocessing.pool.ThreadPool.map')
+    def test_get_org_branches(self, mock_map, *args):
+        self.maxDiff = None
+        mock_map.return_value = [
+            [{u'commit': {u'url': u'https://api.github.com/repos/cloudify-cosmo/getcloudify.org/commits/d87100f060e2f69f2f3702a993a2a4176b1c0493'},
+              u'name': u'CFY-2239-vcloud-plugin-docs'},
+             {u'commit': {u'url': u'https://api.github.com/repos/cloudify-cosmo/getcloudify.org/commits/955c56daf6e43809886d1cee2516a9d7c1d1f5fc'},
+              u'name': u'agent-refactoring-project'}
+             ],
+            [{u'commit': {u'url': u'https://api.github.com/repos/cloudify-cosmo/gs-ui-infra/commits/b66e74f1de35334ae6519f4f3b26022fb6e38557'},
+              u'name': u'3.2.0-build'},
+             {u'commit': {u'url': u'https://api.github.com/repos/cloudify-cosmo/gs-ui-infra/commits/0095ef1cdaf9df8fa24cef251bbfbc60acd54818'},
+              u'name': u'3.3rc1-build'}
+             ]
+        ]
+        expected_result = [Branch(u'3.2.0-build',
+                                  Repo(u'gs-ui-infra',
+                                       org=Organization(u'cloudify-cosmo'))),
+                           Branch(u'3.3rc1-build',
+                                  Repo(u'gs-ui-infra',
+                                       org=Organization(u'cloudify-cosmo'))),
+                           Branch(u'CFY-2239-vcloud-plugin-docs',
+                                  Repo(u'getcloudify.org',
+                                       org=Organization(u'cloudify-cosmo'))),
+                           Branch(u'agent-refactoring-project',
+                                  Repo(u'getcloudify.org',
+                                       org=Organization(u'cloudify-cosmo')))
+                           ]
+        org = Organization('org_name')
+        repos = [Repo('repo_name')]
+        self.assertEqual(model.Branch.get_org_branches(repos, org),
+                         expected_result)
 
+    def test_update_branches_with_issues(self):
 
+        branches = [Branch(u'CFY-3223-allow-external-rabbitmq',
+                           Repo(u'cloudify-manager',
+                                org=Organization(u'cloudify-cosmo'))),
+                    Branch(u'CFY-3502-ngmin-faster',
+                           Repo(u'cloudify-ui',
+                                org=Organization(u'cloudify-cosmo')))]
 
+        issues = [Issue('CFY-3223', 'Resolved'),
+                  Issue('CFY-3502', 'Closed')]
 
+        expected_branches = [Branch(u'CFY-3223-allow-external-rabbitmq',
+                                    Repo(u'cloudify-manager',
+                                         org=Organization(u'cloudify-cosmo')),
+                                    jira_issue=Issue('CFY-3223', 'Resolved')),
+                             Branch(u'CFY-3502-ngmin-faster',
+                                    Repo(u'cloudify-ui',
+                                         org=Organization(u'cloudify-cosmo')),
+                                    jira_issue=Issue('CFY-3502', 'Closed'))
+                             ]
+        Branch.update_branches_with_issues(branches, issues)
+        self.assertEqual(branches, expected_branches)
 
+    def test_update_branches_with_issues_empty_branches(self):
 
+        branches = []
+        issues = [Issue('CFY-3223', 'Resolved')]
 
+        expected_branches = []
+
+        Branch.update_branches_with_issues(branches, issues)
+        self.assertEqual(branches, expected_branches)
+
+    def test_update_branches_with_issues_empty_issues(self):
+
+        branches = [Branch(u'CFY-3223-allow-external-rabbitmq',
+                           Repo(u'cloudify-manager',
+                                org=Organization(u'cloudify-cosmo')))
+                    ]
+        issues = []
+
+        expected_branches = [Branch(u'CFY-3223-allow-external-rabbitmq',
+                                    Repo(u'cloudify-manager',
+                                         org=Organization(u'cloudify-cosmo')))
+                             ]
+
+        Branch.update_branches_with_issues(branches, issues)
+        self.assertEqual(branches, expected_branches)
+
+    def test_update_details_with_correctly_formatted_details(self):
+
+        branch = Branch(u'CFY-3223-allow-external-rabbitmq',
+                        Repo(u'cloudify-manager',
+                             org=Organization(u'cloudify-cosmo')))
+
+        details = {'commit': {
+            'commit': {
+                'author': {
+                    'email': 'avia@gigaspaces.com'
+                }}}}
+        expected_branch = Branch(u'CFY-3223-allow-external-rabbitmq',
+                                 Repo(u'cloudify-manager',
+                                      org=Organization(u'cloudify-cosmo')),
+                                 committer_email='avia@gigaspaces.com')
+        Branch.update_details(branch, details)
+        self.assertEqual(branch, expected_branch)
+
+    def test_update_details_with_incorrectly_formatted_details(self):
+
+        branch = Branch(u'CFY-3223-allow-external-rabbitmq',
+                        Repo(u'cloudify-manager',
+                             org=Organization(u'cloudify-cosmo')))
+
+        details = {'commit': {
+            'commit': {
+                'author': {
+                    'not_email': 'no_email'
+                }}}}
+
+        self.assertRaises(KeyError, Branch.update_details, branch, details)
+
+    
 
 
 
