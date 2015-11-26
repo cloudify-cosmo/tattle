@@ -438,3 +438,30 @@ class IssueFilterTestCase(unittest.TestCase):
         branch.jira_issue = Issue('CFY-1000', 'Open')
         self.assertFalse(issue_filter.legal(branch))
 
+
+class TransformTestCase(unittest.TestCase):
+
+    def test_from_yaml(self):
+        yaml_transform = yaml.load('base_inducer:   CFY-*\d+\n'
+                                   "edge_case_str:  '-'\n"
+                                   'edge_from:      CFY\n'
+                                   'edge_to:        CFY-'
+                                   )
+        expected_transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
+        self.assertEqual(Transform.from_yaml(yaml_transform),
+                         expected_transform
+                         )
+
+    def test_transform(self):
+        transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
+        src = 'CFY-3223-allow-external-rabbitmq'
+        self.assertEqual(transform.transform(src), 'CFY-3223')
+
+
+
+
+
+
+
+
+
