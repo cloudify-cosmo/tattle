@@ -9,7 +9,7 @@ from tattle.model import Organization
 from tattle.model import Repo
 from tattle.model import Branch
 from tattle.model import Issue
-from tattle.model import Precedence
+from tattle.model import Filter
 
 
 class GitHubApiUrlTestCase(unittest.TestCase):
@@ -291,17 +291,78 @@ class BranchTestCase(unittest.TestCase):
         self.assertRaises(KeyError, Branch.update_details, branch, details)
 
 
-class PrecedenceTestCase(unittest.TestCase):
+class IssueTestCase(unittest.TestCase):
 
-    def test_precedence_with_float(self):
-        self.assertRaises(TypeError, Precedence, 1.5)
+    def test_eq(self):
 
-    def test_precedence_with_zero(self):
-        self.assertRaises(ValueError, Precedence, 0)
+        issue1 = Issue(u'CFY-3223', u'Closed')
+        issue2 = Issue(u'CFY-3502', u'Closed')
+        issue3 = Issue(u'CFY-3223', u'Resolved')
+        issue4 = Issue(u'CFY-3223', u'Closed')
 
-    def test_precedence_with_negative(self):
-        self.assertRaises(ValueError, Precedence, -1)
+        self.assertNotEqual(issue1, issue2)
+        self.assertNotEqual(issue2, issue3)
+        self.assertNotEqual(issue1, issue3)
+        self.assertEqual(issue1, issue4)
 
+    def test_str(self):
+
+        issue = Issue(u'CFY-3223', u'Closed')
+        expected_string = 'key: CFY-3223, status: Closed'
+        self.assertEqual(str(issue), expected_string)
+
+    def test_get_json_issue(self):
+
+        self.assertIsNone(Issue.get_json_issue(None, 'jira_team_name'))
+
+    def test_from_json(self):
+
+        json_issue = {
+            'key': u'CFY-3223',
+            'fields': {
+                'status': {
+                    'name': u'Closed'
+                }
+            }
+        }
+
+        expected_issue = Issue(u'CFY-3223', u'Closed')
+        self.assertEqual(Issue.from_json(json_issue), expected_issue)
+
+    def test_from_json_no_json(self):
+
+        self.assertIsNone(Issue.from_json(None))
+
+    def test_from_json_missing_parts(self):
+
+        json_issue_no_key = {
+            'fields': {
+                'status': {
+                    'name': u'Closed'
+                }
+            }
+        }
+
+        json_issue_no_status = {
+            'key': u'CFY-3223',
+            'fields': {}
+        }
+
+        self.assertRaises(KeyError, Issue.from_json, json_issue_no_key)
+        self.assertRaises(KeyError, Issue.from_json, json_issue_no_status)
+
+
+# class FilterTestCase(unittest.TestCase):
+#
+#     def test_lt(self):
+#
+#         filter1 = Filter(1)
+#         filter2 = Filter(2)
+#
+#         self.assertLess(filter1, filter2)
+#
+#     def test_get_filter_class(self):
+#         self.assertEqual()
 
 
 
