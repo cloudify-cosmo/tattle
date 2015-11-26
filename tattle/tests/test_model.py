@@ -10,6 +10,8 @@ from tattle.model import Repo
 from tattle.model import Branch
 from tattle.model import Issue
 from tattle.model import Filter
+from tattle.model import NameFilter
+from tattle.model import IssueFilter
 
 
 class GitHubApiUrlTestCase(unittest.TestCase):
@@ -352,17 +354,34 @@ class IssueTestCase(unittest.TestCase):
         self.assertRaises(KeyError, Issue.from_json, json_issue_no_status)
 
 
-# class FilterTestCase(unittest.TestCase):
-#
-#     def test_lt(self):
-#
-#         filter1 = Filter(1)
-#         filter2 = Filter(2)
-#
-#         self.assertLess(filter1, filter2)
-#
-#     def test_get_filter_class(self):
-#         self.assertEqual()
+class FilterTestCase(unittest.TestCase):
+
+    def test_lt(self):
+
+        filter1 = Filter(1)
+        filter2 = Filter(2)
+
+        self.assertLess(filter1, filter2)
+
+    def test_get_filter_class(self):
+        self.assertEqual(Filter.get_filter_class('name'), NameFilter)
+        self.assertEqual(Filter.get_filter_class('issue'), IssueFilter)
+        self.assertRaises(KeyError, Filter.get_filter_class, 'invalid_key')
+
+    @mock.patch('tattle.model.IssueFilter.from_yaml')
+    @mock.patch('tattle.model.NameFilter.from_yaml')
+    def test_from_yaml(self,
+                       mock_name_filter_from_yaml,
+                       mock_issue_filter_from_yaml):
+
+        name_filter = Filter.from_yaml({'type': 'name'})
+        self.assertTrue(mock_name_filter_from_yaml.called)
+        self.assertFalse(mock_issue_filter_from_yaml.called)
+
+        name_filter = Filter.from_yaml({'type': 'issue'})
+        self.assertTrue(mock_issue_filter_from_yaml.called)
+
+
 
 
 
