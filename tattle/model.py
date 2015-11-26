@@ -138,7 +138,7 @@ class Repo(GitHubObject):
 
     def __repr__(self):
         return 'Repo(name={0},org={1})'.format(self.name,
-                                                        self.organization)
+                                               self.organization)
 
     @classmethod
     def from_json(cls, json_repo):
@@ -271,72 +271,7 @@ class Branch(GitHubObject):
         branch.committer_email = details['commit']['commit']['author']['email']
 
 
-# class Precedence(object):
-#
-#     def __init__(self, name):
-#         self.name = name
-#
-#     def __get__(self, instance, cls):
-#         if instance is None:
-#             return self
-#         else:
-#             return instance.__dict__[self.name]
-#
-#     def __set__(self, instance, value):
-#
-#         if not isinstance(value, int):
-#             raise TypeError('a precedence is a positive integer')
-#
-#         if value <= 0:
-#             raise ValueError('a precedence is a positive integer')
-#
-#         instance.__dict__[self.name] = value
-#
-
-class Precedence(object):
-
-    def __init__(self, value):
-        self._value = value
-
-    def __get__(self, instance, cls):
-        return self._value
-
-    def __set__(self, instance, value):
-
-        if not isinstance(value, int):
-            raise TypeError('a precedence is a positive integer')
-
-        if value <= 0:
-            raise ValueError('a precedence is a positive integer')
-
-        self._value = value
-
-
-class IssueStatus(object):
-
-    def __init__(self, name):
-        self.name = name
-
-    def __get__(self, instance, cls):
-        if instance is None:
-            return self
-        else:
-            return instance.__dict__[self.name]
-
-    def __set__(self, instance, value):
-
-        if not isinstance(value, (unicode, str)):
-            raise TypeError('a JIRA issue status is expected to be a string')
-
-        if value not in Issue.STATUSES:
-            raise ValueError('Not a defined JIRA issue status')
-
-        instance.__dict__[self.name] = value
-
-
 class Issue(object):
-
-    status = IssueStatus('status')
 
     # TODO maybe generate the status list according to the team's jira status list.
     STATUSES = [u'Assigned', u'Build' u'Broken', u'Building', u'Closed',
@@ -444,7 +379,7 @@ class NameFilter(Filter):
     @classmethod
     def from_yaml(cls, yaml_nf):
 
-        precedence = Precedence(yaml_nf.get(cls.PRECEDENCE, sys.maxint))
+        precedence = yaml_nf.get(cls.PRECEDENCE, sys.maxint)
         regexes = yaml_nf.get(cls.REGEXES, list())
         return cls(precedence, regexes)
 
@@ -476,7 +411,7 @@ class IssueFilter(Filter):
 
     @classmethod
     def from_yaml(cls, yaml_if):
-        precedence = Precedence(yaml_if.get(cls.PRECEDENCE, sys.maxint))
+        precedence = yaml_if.get(cls.PRECEDENCE, sys.maxint)
         jira_team_name = yaml_if.get(cls.JIRA_TEAM_NAME)
         jira_statuses = yaml_if.get(cls.JIRA_STATUSES, Issue.STATUSES)
 
