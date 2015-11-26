@@ -1,6 +1,7 @@
 import unittest
 
 import mock
+import yaml
 
 from tattle import model
 
@@ -380,6 +381,21 @@ class FilterTestCase(unittest.TestCase):
 
         name_filter = Filter.from_yaml({'type': 'issue'})
         self.assertTrue(mock_issue_filter_from_yaml.called)
+
+
+class NameFilterTestCase(unittest.TestCase):
+
+    def test_from_yaml(self):
+        yaml_nf = yaml.load('precedence: 1\n'
+                            'regular_expressions: [CFY]')
+
+        expected_filter = NameFilter(1, ['CFY'])
+        self.assertEqual(NameFilter.from_yaml(yaml_nf), expected_filter)
+
+    def test_legal(self):
+        name_filter = NameFilter(1, ['pat'])
+        self.assertTrue(name_filter.legal(Organization('pat-1000')))
+        self.assertFalse(name_filter.legal((Organization('1000'))))
 
 
 
