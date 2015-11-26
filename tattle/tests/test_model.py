@@ -13,6 +13,7 @@ from tattle.model import Issue
 from tattle.model import Filter
 from tattle.model import NameFilter
 from tattle.model import IssueFilter
+from tattle.model import Transform
 
 
 class GitHubApiUrlTestCase(unittest.TestCase):
@@ -398,11 +399,42 @@ class NameFilterTestCase(unittest.TestCase):
         self.assertFalse(name_filter.legal((Organization('1000'))))
 
 
+class IssueFilterTestCase(unittest.TestCase):
 
+    @mock.patch('tattle.model.Transform.from_yaml')
+    def test_from_yaml(self, mock_transform_from_yaml):
 
+        yaml_if = yaml.load('precedence: 1\n'
+                            'jira_team_name: cloudifysource\n'
+                            'jira_statuses:  [Closed, Resolved]\n'
+                            'transform:\n'
+                            'base_inducer:   CFY-*\d+\n'
+                            "edge_case_str:  '-'\n"
+                            'edge_from:      CFY\n'
+                            'edge_to:        CFY-\n'
+                            )
+        transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
+        mock_transform_from_yaml.return_value = transform
 
+        expected_filter = IssueFilter(1,
+                                      'cloudifysource',
+                                      ['Closed', 'Resolved'],
+                                      transform
+                                      )
+        self.assertEqual(IssueFilter.from_yaml(yaml_if), expected_filter)
 
+    def test_legal(self):
 
-
-
+        issue_filter = IssueFilter(1,
+                                   'cloudifysource',
+                                   ['Closed', 'Resolved'],
+                                   'transform'
+                                   )
+        branch = Branch('name', 'repo')
+        branch.jira_issue = Issue('CFY-1000', 'Closed')
+        self.assertTrue(issue_filter.legal(branch))
+        branch.jira_issue = Issue('CFY-1000', 'Resolved')
+        self.assertTrue(issue_filter.legal(branch))
+        branch.jira_issue = Issue('CFY-1000', 'Open')
+        self.assertFalse(issue_filter.legal(branch))
 
