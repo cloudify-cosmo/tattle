@@ -442,6 +442,11 @@ class Transform(object):
         self.edge_from = edge_from
         self.edge_to = edge_to
 
+    def __eq__(self, other):
+        if type(other) is type(self):
+            return self.__dict__ == other.__dict__
+        return False
+
     @classmethod
     def from_yaml(cls, yaml_tf):
 
