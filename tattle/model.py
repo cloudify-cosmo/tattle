@@ -502,6 +502,11 @@ class QueryConfig(object):
         self.github_org = github_org
         self.output_path = output_path
 
+    def __eq__(self, other):
+        if type(other) is type(self):
+            return self.__dict__ == other.__dict__
+        return False
+
     @classmethod
     def from_yaml(cls, yaml_qc):
 
