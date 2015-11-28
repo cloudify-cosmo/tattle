@@ -39,9 +39,9 @@ ish.setFormatter(info_formatter)
 logger.addHandler(ish)
 
 
-def determine_num_of_threads(max_threads, num_of_items, per_page=1):
+def determine_num_of_threads(thread_limit, num_of_items, per_page=1):
     requested_threads = int(math.ceil(num_of_items / float(per_page)))
-    return min(max_threads, requested_threads)
+    return min(thread_limit, requested_threads)
 
 
 def create_thread_pool(number_of_threads):
@@ -147,12 +147,12 @@ class Repo(GitHubObject):
         return cls(name, organization)
 
     @classmethod
-    def get_repos(cls, org, max_threads=NO_THREAD_LIMIT):
+    def get_repos(cls, org, thread_limit=NO_THREAD_LIMIT):
         logger.info('retrieving github repositories for the {0} organization'
                     .format(org))
 
         num_of_repos = Organization.get_num_of_repos(org)
-        num_of_threads = determine_num_of_threads(max_threads,
+        num_of_threads = determine_num_of_threads(thread_limit,
                                                   num_of_repos,
                                                   per_page=ITEMS_PER_PAGE)
         pool = create_thread_pool(num_of_threads)
@@ -212,11 +212,11 @@ class Branch(GitHubObject):
         return name, organization
 
     @classmethod
-    def get_org_branches(cls, repos, org, max_threads=NO_THREAD_LIMIT):
+    def get_org_branches(cls, repos, org, thread_limit=NO_THREAD_LIMIT):
         logger.info('retrieving basic github branch info '
                     'for the {0} organization'
                     .format(org))
-        num_of_threads = determine_num_of_threads(max_threads, len(repos))
+        num_of_threads = determine_num_of_threads(thread_limit, len(repos))
         pool = create_thread_pool(num_of_threads)
 
         json_branches_lists = pool.map(cls.get_json_branches, repos)
@@ -244,13 +244,13 @@ class Branch(GitHubObject):
             branch.jira_issue = issue
 
     @classmethod
-    def get_details(cls, branches, max_threads):
+    def get_details(cls, branches, thread_limit):
         if branches:
             logger.info('retrieving detailed github branch info '
                         'for the {0} organization'
                         .format(branches[0].repo.organization.name))
 
-        num_of_threads = determine_num_of_threads(max_threads, len(branches))
+        num_of_threads = determine_num_of_threads(thread_limit, len(branches))
         pool = create_thread_pool(num_of_threads)
 
         return pool.map(cls.fetch_details, branches)
@@ -304,9 +304,9 @@ class Issue(object):
 
     @classmethod
     def get_json_issues(cls, keys, jira_team_name,
-                        max_threads=NO_THREAD_LIMIT):
+                        thread_limit=NO_THREAD_LIMIT):
 
-        number_of_threads = determine_num_of_threads(max_threads, len(keys))
+        number_of_threads = determine_num_of_threads(thread_limit, len(keys))
         pool = create_thread_pool(number_of_threads)
 
         return pool.map(
@@ -477,7 +477,7 @@ class Transform(object):
 class QueryConfig(object):
 
     DATA_TYPE = 'data_type'
-    MAX_THREADS = 'max_threads'
+    THREAD_LIMIT = 'thread_limit'
     GITHUB_ORG = 'github_org'
     OUTPUT_PATH = 'output_path'
     DEFAULT_OUTPUT_FILE_NAME = 'report.json'
@@ -493,12 +493,12 @@ class QueryConfig(object):
 
     def __init__(self,
                  data_type,
-                 max_threads,
+                 thread_limit,
                  github_org,
                  output_path):
 
         self.data_type = data_type
-        self.max_threads = max_threads
+        self.thread_limit = thread_limit
         self.github_org = github_org
         self.output_path = output_path
 
@@ -506,12 +506,12 @@ class QueryConfig(object):
     def from_yaml(cls, yaml_qc):
 
         data_type = yaml_qc.get(cls.DATA_TYPE)
-        max_threads = yaml_qc.get(cls.MAX_THREADS, NO_THREAD_LIMIT)
+        thread_limit = yaml_qc.get(cls.THREAD_LIMIT, NO_THREAD_LIMIT)
         github_org = yaml_qc.get(cls.GITHUB_ORG)
         output_path = yaml_qc.get(cls.OUTPUT_PATH, cls.DEFAULT_OUTPUT_PATH)
 
         return cls(data_type,
-                   max_threads,
+                   thread_limit,
                    Organization(github_org),
                    output_path)
 
@@ -575,16 +575,16 @@ class BranchQuery(Query):
     def query(self):
 
         repos = Repo.get_repos(self.config.github_org,
-                               self.config.max_threads)
+                               self.config.thread_limit)
 
         branches = Branch.get_org_branches(repos,
                                            self.config.github_org,
-                                           max_threads=self.config.max_threads
+                                           thread_limit=self.config.thread_limit
                                            )
 
         query_branches = self.filter(branches)
         details = Branch.get_details(query_branches,
-                                     self.config.max_threads)
+                                     self.config.thread_limit)
 
         for branch, branch_details in itertools.izip(query_branches, details):
             Branch.update_details(branch, branch_details)
@@ -598,7 +598,7 @@ class BranchQuery(Query):
                 json_issues = \
                     Issue.get_json_issues(keys,
                                           f.jira_team_name,
-                                          max_threads=self.config.max_threads)
+                                          thread_limit=self.config.thread_limit)
                 self.issues = [Issue.from_json(j_issue) for j_issue in json_issues]
                 Branch.update_branches_with_issues(branches, self.issues)
             branches = f.filter(branches)
