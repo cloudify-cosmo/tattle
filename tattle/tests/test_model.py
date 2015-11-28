@@ -15,6 +15,8 @@ from tattle.model import NameFilter
 from tattle.model import IssueFilter
 from tattle.model import Transform
 from tattle.model import QueryConfig
+from tattle.model import Query
+from tattle.model import BranchQuery
 
 
 class GitHubApiUrlTestCase(unittest.TestCase):
@@ -377,11 +379,11 @@ class FilterTestCase(unittest.TestCase):
                        mock_name_filter_from_yaml,
                        mock_issue_filter_from_yaml):
 
-        name_filter = Filter.from_yaml({'type': 'name'})
+        Filter.from_yaml({'type': 'name'})
         self.assertTrue(mock_name_filter_from_yaml.called)
         self.assertFalse(mock_issue_filter_from_yaml.called)
 
-        name_filter = Filter.from_yaml({'type': 'issue'})
+        Filter.from_yaml({'type': 'issue'})
         self.assertTrue(mock_issue_filter_from_yaml.called)
 
 
@@ -512,5 +514,26 @@ class QueryConfigTestCase(unittest.TestCase):
         self.assertEqual(QueryConfig.from_yaml(yaml_qc), expected_qc)
 
 
+class QueryTestCase(unittest.TestCase):
 
+    def test_get_query_class(self):
+        self.assertEqual(Query.get_query_class('branch'), BranchQuery)
 
+    def test_get_query_class_with_invalid_key(self):
+        self.assertRaises(KeyError, Query.get_query_class, 'organization')
+        self.assertRaises(KeyError, Query.get_query_class, 'repo')
+        self.assertRaises(KeyError, Query.get_query_class, 'tag')
+
+    def test_attach_filters(self):
+        sorted_filters = [NameFilter(1, None),
+                          IssueFilter(2, None, None, None)
+                          ]
+        unsorted_filters = [IssueFilter(2, None, None, None),
+                            NameFilter(1, None)
+                            ]
+        q = Query(None)
+        q.attach_filters(sorted_filters)
+        self.assertEqual(q.filters, sorted_filters)
+        q.filters = []
+        q.attach_filters(unsorted_filters)
+        self.assertEqual(q.filters, sorted_filters)
