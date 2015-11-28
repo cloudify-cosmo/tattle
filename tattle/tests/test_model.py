@@ -537,3 +537,42 @@ class QueryTestCase(unittest.TestCase):
         q.filters = []
         q.attach_filters(unsorted_filters)
         self.assertEqual(q.filters, sorted_filters)
+
+
+class BranchQueryTestCase(unittest.TestCase):
+
+    @mock.patch('tattle.model.NameFilter.filter')
+    @mock.patch('tattle.model.IssueFilter.filter')
+    @mock.patch('tattle.model.Branch.update_branches_with_issues')
+    @mock.patch('tattle.model.Issue.get_json_issues')
+    @mock.patch('tattle.model.Issue.generate_issue_keys')
+    def test_filter_with_issue_filter(self,
+                                      mock_generate_issue_keys,
+                                      mock_get_json_issues,
+                                      mock_update_branches_with_issues,
+                                      *args
+                                      ):
+        bq = BranchQuery(QueryConfig(None, None, None, None))
+        bq.filters = [IssueFilter(None, None, None, None)]
+        bq.filter(None)
+        self.assertTrue(mock_generate_issue_keys.called)
+        self.assertTrue(mock_get_json_issues.called)
+        self.assertTrue(mock_update_branches_with_issues.called)
+
+    @mock.patch('tattle.model.NameFilter.filter')
+    @mock.patch('tattle.model.IssueFilter.filter')
+    @mock.patch('tattle.model.Branch.update_branches_with_issues')
+    @mock.patch('tattle.model.Issue.get_json_issues')
+    @mock.patch('tattle.model.Issue.generate_issue_keys')
+    def test_filter_without_issue_filter(self,
+                                      mock_generate_issue_keys,
+                                      mock_get_json_issues,
+                                      mock_update_branches_with_issues,
+                                      *args
+                                      ):
+        bq = BranchQuery(QueryConfig(None, None, None, None))
+        bq.filters = [NameFilter(None, None)]
+        bq.filter(None)
+        self.assertFalse(mock_generate_issue_keys.called)
+        self.assertFalse(mock_get_json_issues.called)
+        self.assertFalse(mock_update_branches_with_issues.called)
