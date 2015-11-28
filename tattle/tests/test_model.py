@@ -14,6 +14,7 @@ from tattle.model import Filter
 from tattle.model import NameFilter
 from tattle.model import IssueFilter
 from tattle.model import Transform
+from tattle.model import QueryConfig
 
 
 class GitHubApiUrlTestCase(unittest.TestCase):
@@ -34,7 +35,7 @@ class GitHubApiUrlTestCase(unittest.TestCase):
         self.assertEqual(model.determine_num_of_threads(0, 10, per_page=1), 0)
 
         self.assertRaises(ZeroDivisionError, model.determine_num_of_threads,
-                          max_threads=10, num_of_items=10, per_page=0)
+                          thread_limit=10, num_of_items=10, per_page=0)
 
     @mock.patch('tattle.model.ThreadPool')
     def test_create_thread_pool(self, mock_pool):
@@ -483,6 +484,33 @@ class TransformTestCase(unittest.TestCase):
         transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
         src = 'CFY-3223CFY-3223'
         self.assertEqual(transform.transform(src), 'CFY-3223')
+
+
+class QueryConfigTestCase(unittest.TestCase):
+
+    @mock.patch('tattle.model.os')
+    def test_github_credentials_accessing_os_environ(self, mock_os):
+        mock_os.environ = {'GITHUB_USER': 'user', 'GITHUB_PASS': 'pass'}
+        expected_credentials = ('user', 'pass')
+        self.assertEqual(QueryConfig.github_credentials(), expected_credentials)
+
+    def test_from_yaml(self):
+
+        yaml_qc = yaml.load(
+            'thread_limit:  120\n'
+            'data_type:    branch\n'
+            'github_org:   cloudify-cosmo\n'
+            'output_path:  /home/avia/tattle/output/report.json\n'
+        )
+
+        expected_qc = QueryConfig('branch',
+                                  120,
+                                  Organization('cloudify-cosmo'),
+                                  '/home/avia/tattle/output/report.json'
+                                  )
+        qc = QueryConfig.from_yaml(yaml_qc)
+        self.assertEqual(QueryConfig.from_yaml(yaml_qc), expected_qc)
+
 
 
 
