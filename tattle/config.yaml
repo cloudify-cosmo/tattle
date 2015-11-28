@@ -17,6 +17,6 @@ filters:
     transform:
         base:               CFY-*\d+
         if_doesnt_contain:  '-'
-        replace_src:        CFY
-        replace_dst:        CFY-
+        replace_from:       CFY
+        replace_to:         CFY-
 ...
