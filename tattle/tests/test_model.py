@@ -442,10 +442,10 @@ class IssueFilterTestCase(unittest.TestCase):
 class TransformTestCase(unittest.TestCase):
 
     def test_from_yaml(self):
-        yaml_transform = yaml.load('base_inducer:   CFY-*\d+\n'
-                                   "edge_case_str:  '-'\n"
-                                   'edge_from:      CFY\n'
-                                   'edge_to:        CFY-'
+        yaml_transform = yaml.load('base:   CFY-*\d+\n'
+                                   "if_doesnt_contain:  '-'\n"
+                                   'replace_from:      CFY\n'
+                                   'replace_to:        CFY-'
                                    )
         expected_transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
         self.assertEqual(Transform.from_yaml(yaml_transform),
@@ -457,11 +457,32 @@ class TransformTestCase(unittest.TestCase):
         src = 'CFY-3223-allow-external-rabbitmq'
         self.assertEqual(transform.transform(src), 'CFY-3223')
 
+    def test_transform_with_if_doesnt_contain(self):
 
+        transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
+        src = 'CFY3223-allow-external-rabbitmq'
+        self.assertEqual(transform.transform(src), 'CFY-3223')
 
+    def test_transform_from_and_to_are_the_same(self):
 
+        transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY')
+        src = 'CFY-3223-allow-external-rabbitmq'
+        self.assertEqual(transform.transform(src), 'CFY-3223')
 
+    def test_transform_with_empty_if_doesnt_contain(self):
+        transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
+        src = 'CFY-3223-allow-external-rabbitmq'
+        self.assertEqual(transform.transform(src), 'CFY-3223')
 
+    def test_transform_base_is_not_a_pattern(self):
+        transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
+        src = 'GIVEAWAY'
+        self.assertIsNone(transform.transform(src))
+
+    def test_transform_two_base_occurrences(self):
+        transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
+        src = 'CFY-3223CFY-3223'
+        self.assertEqual(transform.transform(src), 'CFY-3223')
 
 
 
