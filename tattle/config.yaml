@@ -15,8 +15,8 @@ filters:
     jira_team_name: cloudifysource
     jira_statuses:  [Closed, Resolved]
     transform:
-        base_inducer:   CFY-*\d+
-        edge_case_str:  '-'
-        edge_from:      CFY
-        edge_to:        CFY-
+        base:               CFY-*\d+
+        if_doesnt_contain:  '-'
+        replace_src:        CFY
+        replace_dst:        CFY-
 ...

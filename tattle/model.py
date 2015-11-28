@@ -431,16 +431,16 @@ class IssueFilter(Filter):
 
 class Transform(object):
 
-    BASE_INDUCER = 'base_inducer'
-    EDGE_CASE_STR = 'edge_case_str'
-    EDGE_FROM = 'edge_from'
-    EDGE_TO = 'edge_to'
+    BASE = 'base'
+    IF_DOESNT_CONTAIN = 'if_doesnt_contain'
+    REPLACE_FROM = 'replace_from'
+    REPLACE_TO = 'replace_to'
 
-    def __init__(self, base_inducer, edge_case_str, edge_from, edge_to):
-        self.base_inducer = base_inducer
-        self.edge_case_str = edge_case_str
-        self.edge_from = edge_from
-        self.edge_to = edge_to
+    def __init__(self, base, if_doesnt_contain, replace_from, replace_to):
+        self.base = base
+        self.if_doesnt_contain = if_doesnt_contain
+        self.replace_from = replace_from
+        self.replace_to = replace_to
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -453,21 +453,21 @@ class Transform(object):
         if yaml_tf is None:
             return None
 
-        base_inducer = yaml_tf.get(cls.BASE_INDUCER)
-        edge_case_str = yaml_tf.get(cls.EDGE_CASE_STR)
-        edge_from = yaml_tf.get(cls.EDGE_FROM)
-        edge_to = yaml_tf.get(cls.EDGE_TO)
+        base = yaml_tf.get(cls.BASE)
+        if_doesnt_contain = yaml_tf.get(cls.IF_DOESNT_CONTAIN)
+        replace_from = yaml_tf.get(cls.REPLACE_FROM)
+        replace_to = yaml_tf.get(cls.REPLACE_TO)
 
-        return cls(base_inducer, edge_case_str, edge_from, edge_to)
+        return cls(base, if_doesnt_contain, replace_from, replace_to)
 
     def transform(self, src):
 
-        base = re.search(self.base_inducer, src)
+        base = re.search(self.base, src)
         if base is not None:
             group = base.group()
-            if self.edge_case_str not in group:
-                return group.replace(self.edge_from,
-                                     self.edge_to)
+            if self.if_doesnt_contain not in group:
+                return group.replace(self.replace_from,
+                                     self.replace_to)
             else:
                 return group
         else:
