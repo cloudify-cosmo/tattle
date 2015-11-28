@@ -530,10 +530,10 @@ class Query(object):
         self.result = None
 
     @staticmethod
-    def get_query_class(query_class):
+    def get_query_class(query_class_str):
 
         query_dict = {'branch': BranchQuery}
-        return query_dict[query_class]
+        return query_dict[query_class_str]
 
     @classmethod
     def from_config(cls, config):
