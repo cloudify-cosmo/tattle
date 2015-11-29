@@ -1,5 +1,6 @@
 .idea/
-cloudify-repo-status.iml
+tattle.iml
+tattle.egg-info/
 features.txt
 
 # Byte-compiled / optimized / DLL files
