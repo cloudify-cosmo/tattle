@@ -608,3 +608,4 @@ class BranchQuery(Query):
                 Branch.update_branches_with_issues(branches, self.issues)
             branches = f.filter(branches)
         return branches
+

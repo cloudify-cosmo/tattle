@@ -60,6 +60,5 @@ target/
 #idea
 .idea/
 tattle.iml
-tattle.egg-info/
 features.txt
 
