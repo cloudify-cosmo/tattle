@@ -1,4 +1,9 @@
 
+#Intellij
+.idea/
+tattle.iml
+features.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -56,9 +61,4 @@ docs/_build/
 
 # PyBuilder
 target/
-
-#idea
-.idea/
-tattle.iml
-features.txt
 
