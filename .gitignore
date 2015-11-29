@@ -1,5 +1,6 @@
+#Intellij
 .idea/
-cloudify-repo-status.iml
+tattle.iml
 features.txt
 
 # Byte-compiled / optimized / DLL files
