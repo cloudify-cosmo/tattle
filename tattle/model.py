@@ -454,7 +454,7 @@ class Transform(object):
             return None
 
         base = yaml_tf.get(cls.BASE)
-        if_doesnt_contain = yaml_tf.get(cls.IF_DOESNT_CONTAIN)
+        if_doesnt_contain = yaml_tf.get(cls.IF_DOESNT_CONTAIN, '')
         replace_from = yaml_tf.get(cls.REPLACE_FROM)
         replace_to = yaml_tf.get(cls.REPLACE_TO)
 
@@ -465,6 +465,8 @@ class Transform(object):
         base = re.search(self.base, src)
         if base is not None:
             group = base.group()
+            if self.if_doesnt_contain == '':
+                return group
             if self.if_doesnt_contain not in group:
                 return group.replace(self.replace_from,
                                      self.replace_to)
