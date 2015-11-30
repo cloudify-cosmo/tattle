@@ -10,7 +10,7 @@ pip install tattle
 ## Setup - Setting Environment Variables
 
 ### Github API request limitations
-As part of it's operation, tattle interacts with the GibHub API. For unauthenticated users, GitHub limits the number of API requests to 60 per hour[https://developer.github.com/v3/#rate-limiting]. While this limitation still enables tattle to perform small queries, it is highly recommended to provide tattle with GitHub credentials (username and password) before running it.
+As part of it's operation, tattle interacts with the GibHub API. For unauthenticated users, GitHub [limits the number of API requests to 60 per hour](https://developer.github.com/v3/#rate-limiting). While this limitation still enables tattle to perform small queries, it is highly recommended to provide tattle with GitHub credentials (username and password) before running it.
 
 ### Setting GitHub-related Environment Variables
 
