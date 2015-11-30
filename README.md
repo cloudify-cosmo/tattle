@@ -3,7 +3,7 @@
 tattle is a tool that enables you to dig a little deeper in your GitHub projects (and even their related JIRA issues).
 
 
-## installation
+## Installation
 ```
 pip install tattle
 ```
@@ -32,7 +32,7 @@ We just need to feed that config file to tattle:
 tattle --config-path=/path/to/config/file
 ```
 
-### Lets go deeper! - the config.yaml file
+### Lets Go Deeper! - The config.yaml File
 
 Tattle's fuctionality relies on a config.yaml file.
 Before getting into specifics, let's have a quick look at a sample config file:
@@ -101,7 +101,7 @@ From a broader prespective, what we did is to *transform* the branch's name into
 Sometimes, providing only a base is enough. This is the case when transforming a branch name into an issue name is simple, or when there are no special edge cases. But for more complex cases, `transform` provides three additional fields: `if_doesnt_contain`, `replace_from`, and `replace_to`.
 
 I will explain all three of them together, with the aid of an example based on real use case that we encountered.
-Assume that you have two branches, `CFY-1001-feature1` and `CFY1002-feature2`. If we provide only the base `CFY-*\d+`, then `CFY-1001-feature1` branch will be transformed to `CFY-1001` issue ,and `CFY1002-feature2` will be transformed to `CFY1002`.
+Assume that you have two branches, `CFY-1001-feature1` and `CFY1002-feature2`. If we provide only the base `CFY-*\d+`, then `CFY-1001-feature1` branch will be transformed to `CFY-1001` issue, and `CFY1002-feature2` will be transformed to `CFY1002`.
 but `CFY1002` is not a valid issue name - it is missing the `-`!
 That's where those three fields come into play:
 ```
