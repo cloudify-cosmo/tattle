@@ -81,16 +81,19 @@ def generate_github_api_url(request_type,
                             page_number=None,
                             ):
     """Return a Github API url based on the given parameters.
-    e.g, if org_name='cloudify-cosmo', repo_name='tattle',
+
+    for example, if org_name='cloudify-cosmo', repo_name='tattle',
     branch_name='master', then the response to the Github API url that
     this method returns includes data regarding the branch 'master'
     of the repo 'tattle' of the the organization 'cloudify-cosmo'
 
-    :param request_type: the type of the request, from config.yaml's query_config
+    :param request_type: the type of the request,
+    from config.yaml's query_config
     :param org_name: name of a GitHub organization
     :param repo_name: name of a GitHub repository
     :param branch_name: name of a GitHub branch
-    :param page_number: the page number to be used in the GitHub API pagination
+    :param page_number: the page number to be used in the pagination of the
+    GitHub API
     :return: Github API url
     :rtype: str
     """
@@ -122,7 +125,11 @@ def generate_github_api_url(request_type,
 
 
 class GitHubObject(object):
+    """ Parent class for all classes representing GitHub objects.
 
+    Contains methods that are common to all the GitHub object,
+    such as rich comparison methods.
+    """
     def __init__(self, name):
         self.name = name
 
