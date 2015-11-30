@@ -55,6 +55,7 @@ logger.addHandler(ish)
 
 
 def determine_num_of_threads(thread_limit, num_of_items, per_page=1):
+
     requested_threads = int(math.ceil(num_of_items / float(per_page)))
     return min(thread_limit, requested_threads)
 
@@ -79,7 +80,20 @@ def generate_github_api_url(request_type,
                             branch_name='',
                             page_number=None,
                             ):
+    """Return a Github API url based on the given parameters.
+    e.g, if org_name='cloudify-cosmo', repo_name='tattle',
+    branch_name='master', then the response to the Github API url that
+    this method returns includes data regarding the branch 'master'
+    of the repo 'tattle' of the the organization 'cloudify-cosmo'
 
+    :param request_type: the type of the request, from config.yaml's query_config
+    :param org_name: name of a GitHub organization
+    :param repo_name: name of a GitHub repository
+    :param branch_name: name of a GitHub branch
+    :param page_number: the page number to be used in the GitHub API pagination
+    :return: Github API url
+    :rtype: str
+    """
     urls = {'organization':    posixpath.join(ORGS,
                                               org_name
                                               ),
