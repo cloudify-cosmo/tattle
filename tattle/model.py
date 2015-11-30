@@ -87,13 +87,13 @@ def generate_github_api_url(request_type,
     this method returns includes data regarding the branch 'master'
     of the repo 'tattle' of the the organization 'cloudify-cosmo'
 
-    :param request_type: the type of the request,
-    from config.yaml's query_config
+    :param request_type: the type of the request, from config.yaml's
+                         query_config
     :param org_name: name of a GitHub organization
     :param repo_name: name of a GitHub repository
     :param branch_name: name of a GitHub branch
-    :param page_number: the page number to be used in the pagination of the
-    GitHub API
+    :param page_number: the page number to be used in the pagination
+                        of the GitHub API
     :return: Github API url
     :rtype: str
     """
@@ -146,7 +146,8 @@ class GitHubObject(object):
 
 
 class Organization(GitHubObject):
-
+    """ Represents a GitHub organization
+    """
     def __init__(self, name):
         super(Organization, self).__init__(name)
 
@@ -155,6 +156,18 @@ class Organization(GitHubObject):
 
     @staticmethod
     def get_num_of_repos(org):
+        """ Returns the number of repos that the GitHub organization `org`.
+
+        The number of repos includes the number of the private repos.
+        This method interacts with the GitHub API in order to retrieve
+        information about the `org` organization.
+        The numbers of the public and private repo is extracted form this
+        information, and added together as the method's return value
+
+        :param org: GitHub organization
+        :return: the number of repos of the specified organization
+        :rtype: int
+        """
 
         url = generate_github_api_url('organization', org_name=org.name)
 
