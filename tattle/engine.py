@@ -58,7 +58,11 @@ def parse_arguments():
 
 
 def print_performance(start, end):
+    """ Prints the total running time of the query
 
+    Time is in seconds, and it's decimal precision is determined
+    by the PERFORMANCE_PRECISION constant.
+    """
     total_time = str(round(end - start, PERFORMANCE_PRECISION))
     print 'total time: {} seconds'.format(total_time)
 
