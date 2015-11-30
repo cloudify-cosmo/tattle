@@ -7,8 +7,23 @@ tattle is a tool that enables you to dig a little deeper in your GitHub projects
 ```
 pip install tattle
 ```
+## Setup - Setting Environment Variables
 
+### Github API request limitations
+As part of it's operation, tattle interacts with the GibHub API. For unauthenticated users, GitHub limits the number of API requests to 60 per hour[https://developer.github.com/v3/#rate-limiting]. While this limitation still enables tattle to perform small queries, it is highly recommended to provide tattle with GitHub credentials (username and password) before running it.
+
+### Setting GitHub-related Environment Variables
+
+To provide tattle with GitHub credentials, simply create two environment variables named `GITHUB_USER` and `GITHUB_PASS`, and set them with a GitHub username and a GitHub password accordingly.
+
+For example, if your GitHub username is 'octocat' and your GitHub password is 'mypass' then you can create the environment variables (and setup tattle) as follows:
+  
+```
+export GITHUB_USER="octocat"
+export GITHUB_PASS="mypass"
+```
 ## Usage
+
 ### Quick Example: Filtering Branches by Name
 
 Assume that you are part of a team that works on a very large project.
