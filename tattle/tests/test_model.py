@@ -45,11 +45,16 @@ class GitHubApiUrlTestCase(unittest.TestCase):
         self.assertEqual(model.determine_num_of_threads(0, 0), 0)
 
     def test_determine_number_of_threads_with_per_page(self):
-        self.assertEqual(model.determine_num_of_threads(10, 10, per_page=1), 10)
-        self.assertEqual(model.determine_num_of_threads(10, 10, per_page=3), 4)
-        self.assertEqual(model.determine_num_of_threads(10, 10, per_page=10), 1)
-        self.assertEqual(model.determine_num_of_threads(10, 10, per_page=11), 1)
-        self.assertEqual(model.determine_num_of_threads(0, 10, per_page=1), 0)
+        self.assertEqual(model.determine_num_of_threads(10, 10, per_page=1),
+                         10)
+        self.assertEqual(model.determine_num_of_threads(10, 10, per_page=3),
+                         4)
+        self.assertEqual(model.determine_num_of_threads(10, 10, per_page=10),
+                         1)
+        self.assertEqual(model.determine_num_of_threads(10, 10, per_page=11),
+                         1)
+        self.assertEqual(model.determine_num_of_threads(0, 10, per_page=1),
+                         0)
 
         self.assertRaises(ZeroDivisionError, model.determine_num_of_threads,
                           thread_limit=10, num_of_items=10, per_page=0)
@@ -66,38 +71,45 @@ class GitHubApiUrlTestCase(unittest.TestCase):
     def test_generate_github_api_url_with_organization(self):
 
         url = 'https://api.github.com/orgs/cloudify-cosmo'
-        self.assertEqual(model.generate_github_api_url('organization',
-                                                       org_name='cloudify-cosmo'),
-                         url)
+        self.assertEqual(
+            model.generate_github_api_url('organization',
+                                          org_name='cloudify-cosmo'),
+            url)
 
     @mock.patch('tattle.model.pagination_format')
-    def test_generate_github_api_url_with_repos(self, mock_pagination_format):
+    def test_generate_github_api_url_with_repos(self,
+                                                mock_pagination_format):
 
         mock_pagination_format.return_value = '?page=1&per_page=100'
         url = 'https://api.github.com/orgs/cloudify-cosmo/repos' \
               '?page=1&per_page=100'
 
-        self.assertEqual(model.generate_github_api_url('repos',
-                                                       org_name='cloudify-cosmo'
-                                                       ),
-                         url)
+        self.assertEqual(
+            model.generate_github_api_url('repos',
+                                          org_name='cloudify-cosmo'
+                                          ),
+            url)
 
     def test_generate_github_api_url_with_list_branches(self):
 
-        url = 'https://api.github.com/repos/cloudify-cosmo/cloudify-manager/branches'
-        self.assertEqual(model.generate_github_api_url('list_branches',
-                                                       org_name='cloudify-cosmo',
-                                                       repo_name='cloudify-manager'),
-                         url)
+        url = ('https://api.github.com/repos/cloudify-cosmo/'
+               'cloudify-manager/branches')
+        self.assertEqual(
+            model.generate_github_api_url('list_branches',
+                                          org_name='cloudify-cosmo',
+                                          repo_name='cloudify-manager'),
+            url)
 
     def test_generate_github_api_url_with_detailed_branch(self):
 
-        url = 'https://api.github.com/repos/cloudify-cosmo/cloudify-manager/branches/master'
-        self.assertEqual(model.generate_github_api_url('detailed_branch',
-                                                       org_name='cloudify-cosmo',
-                                                       repo_name='cloudify-manager',
-                                                       branch_name='master'),
-                         url)
+        url = ('https://api.github.com/repos/cloudify-cosmo'
+               '/cloudify-manager/branches/master')
+        self.assertEqual(
+            model.generate_github_api_url('detailed_branch',
+                                          org_name='cloudify-cosmo',
+                                          repo_name='cloudify-manager',
+                                          branch_name='master'),
+            url)
 
 
 class GitHubObjectTestCase(unittest.TestCase):
@@ -159,12 +171,12 @@ class RepoTest(unittest.TestCase):
         mock_map.return_value = \
             [[{'name': 'cloudify-manager',
                'owner': {'login': 'cloudify-cosmo'}}],
-              [{'name': 'cloudify-ui',
+             [{'name': 'cloudify-ui',
                'owner': {'login': 'cloudify-cosmo'}}]]
 
         org = Organization('cloudify-cosmo')
         expected_result = [Repo('cloudify-manager', org=org),
-                  Repo('cloudify-ui', org=org)]
+                           Repo('cloudify-ui', org=org)]
         result = Repo.get_repos(org)
         self.assertEqual(result, expected_result)
 
@@ -178,9 +190,14 @@ class BranchTestCase(unittest.TestCase):
     @mock.patch('tattle.model.Branch.extract_repo_data')
     def test_from_json(self, mock_extract_repo_data):
 
-        mock_extract_repo_data.return_value = ('getcloudify.org', Organization('cloudify-cosmo'))
+        mock_extract_repo_data.return_value = ('getcloudify.org',
+                                               Organization('cloudify-cosmo'))
 
-        json_branch = {u'commit': {u'url': u'https://api.github.com/repos/cloudify-cosmo/getcloudify.org/commits/d87100f060e2f69f2f3702a993a2a4176b1c0493'},
+        json_branch = {u'commit': {u'url': (u'https://api.github.com/'
+                                            u'repos/cloudify-cosmo/'
+                                            u'getcloudify.org/commits/'
+                                            u'd87100f060e2f69f2f3702a99'
+                                            u'3a2a4176b1c0493')},
                        u'name': u'CFY-2239-vcloud-plugin-docs'}
 
         org = Organization('cloudify-cosmo')
@@ -191,8 +208,11 @@ class BranchTestCase(unittest.TestCase):
 
     def test_extract_repo_data(self):
         # TODO how to handle long strings like that?
-        branch_url = 'https://api.github.com/repos/cloudify-cosmo/getcloudify.org/commits/d87100f060e2f69f2f3702a993a2a4176b1c0493'
-        expected_extraction = ('getcloudify.org', Organization('cloudify-cosmo'))
+        branch_url = ('https://api.github.com/repos/cloudify-cosmo/'
+                      'getcloudify.org/commits/'
+                      'd87100f060e2f69f2f3702a993a2a4176b1c0493')
+        expected_extraction = ('getcloudify.org',
+                               Organization('cloudify-cosmo'))
         self.assertEqual(model.Branch.extract_repo_data(branch_url),
                          expected_extraction)
 
@@ -201,14 +221,26 @@ class BranchTestCase(unittest.TestCase):
     def test_get_org_branches(self, mock_map, *args):
         self.maxDiff = None
         mock_map.return_value = [
-            [{u'commit': {u'url': u'https://api.github.com/repos/cloudify-cosmo/getcloudify.org/commits/d87100f060e2f69f2f3702a993a2a4176b1c0493'},
+            [{u'commit': {u'url': u'https://api.github.com/repos/'
+                                  u'cloudify-cosmo/getcloudify.org/'
+                                  u'commits/d87100f060e2f69f2f3702a'
+                                  u'993a2a4176b1c0493'},
               u'name': u'CFY-2239-vcloud-plugin-docs'},
-             {u'commit': {u'url': u'https://api.github.com/repos/cloudify-cosmo/getcloudify.org/commits/955c56daf6e43809886d1cee2516a9d7c1d1f5fc'},
+             {u'commit': {u'url': u'https://api.github.com/repos/'
+                                  u'cloudify-cosmo/getcloudify.org/'
+                                  u'commits/955c56daf6e43809886d1ce'
+                                  u'e2516a9d7c1d1f5fc'},
               u'name': u'agent-refactoring-project'}
              ],
-            [{u'commit': {u'url': u'https://api.github.com/repos/cloudify-cosmo/gs-ui-infra/commits/b66e74f1de35334ae6519f4f3b26022fb6e38557'},
+            [{u'commit': {u'url': u'https://api.github.com/repos/'
+                                  u'cloudify-cosmo/gs-ui-infra/'
+                                  u'commits/b66e74f1de35334ae6519f4'
+                                  u'f3b26022fb6e38557'},
               u'name': u'3.2.0-build'},
-             {u'commit': {u'url': u'https://api.github.com/repos/cloudify-cosmo/gs-ui-infra/commits/0095ef1cdaf9df8fa24cef251bbfbc60acd54818'},
+             {u'commit': {u'url': u'https://api.github.com/repos/'
+                                  u'cloudify-cosmo/gs-ui-infra/'
+                                  u'commits/0095ef1cdaf9df8fa24cef2'
+                                  u'51bbfbc60acd54818'},
               u'name': u'3.3rc1-build'}
              ]
         ]
@@ -509,7 +541,8 @@ class QueryConfigTestCase(unittest.TestCase):
     def test_github_credentials_accessing_os_environ(self, mock_os):
         mock_os.environ = {'GITHUB_USER': 'user', 'GITHUB_PASS': 'pass'}
         expected_credentials = ('user', 'pass')
-        self.assertEqual(QueryConfig.github_credentials(), expected_credentials)
+        self.assertEqual(QueryConfig.github_credentials(),
+                         expected_credentials)
 
     def test_from_yaml(self):
 
@@ -525,7 +558,6 @@ class QueryConfigTestCase(unittest.TestCase):
                                   Organization('cloudify-cosmo'),
                                   '/home/avia/tattle/output/report.json'
                                   )
-        qc = QueryConfig.from_yaml(yaml_qc)
         self.assertEqual(QueryConfig.from_yaml(yaml_qc), expected_qc)
 
 
@@ -580,11 +612,11 @@ class BranchQueryTestCase(unittest.TestCase):
     @mock.patch('tattle.model.Issue.get_json_issues')
     @mock.patch('tattle.model.Issue.generate_issue_keys')
     def test_filter_without_issue_filter(self,
-                                      mock_generate_issue_keys,
-                                      mock_get_json_issues,
-                                      mock_update_branches_with_issues,
-                                      *args
-                                      ):
+                                         mock_generate_issue_keys,
+                                         mock_get_json_issues,
+                                         mock_update_branches_with_issues,
+                                         *args
+                                         ):
         bq = BranchQuery(QueryConfig(None, None, None, None))
         bq.filters = [NameFilter(None, None)]
         bq.filter(None)

@@ -51,9 +51,9 @@ class GitHubEnvVariablesTestCase(unittest.TestCase):
 
 class ParseArgumentsTestCase(unittest.TestCase):
 
-    @mock.patch.object(sys, 'argv', new=['name', '--config-path=/dir/config.yaml'])
+    @mock.patch.object(sys, 'argv',
+                       new=['name', '--config-path=/dir/config.yaml'])
     def test_getting_the_file_path(self):
         args = parse_arguments()
         self.assertEqual(args.config_path, '/dir/config.yaml',
                          msg='parsed the wrong config file path.')
-

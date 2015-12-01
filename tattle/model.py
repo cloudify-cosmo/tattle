@@ -104,8 +104,8 @@ def generate_github_api_url(request_type,
             'repos':           posixpath.join(ORGS,
                                               org_name,
                                               REPOS
-                                              ) +
-                               pagination_format(page_number),
+                                              ) + pagination_format(
+                page_number),
 
             'list_branches':   posixpath.join(REPOS,
                                               org_name,
@@ -247,14 +247,16 @@ class Branch(GitHubObject):
     def from_json(cls, json_branch):
 
         name = json_branch['name']
-        (repo_name, organization) = cls.extract_repo_data(json_branch['commit']['url'])
+        (repo_name, organization) = cls.extract_repo_data(
+            json_branch['commit']['url'])
         repo = Repo(repo_name, org=organization)
 
         return cls(name, repo)
 
     @staticmethod
     def extract_repo_data(branch_url):
-        url_regex = re.compile(r'https://api.github.com/repos/(.*)/(.*)/commits/(.*)')
+        url_regex = re.compile(
+            r'https://api.github.com/repos/(.*)/(.*)/commits/(.*)')
         groups = url_regex.findall(branch_url)
         name = groups[0][1]
         organization = Organization(groups[0][0])
@@ -322,7 +324,6 @@ class Branch(GitHubObject):
 
 class Issue(object):
 
-    # TODO maybe generate the status list according to the team's jira status list.
     STATUSES = [u'Assigned', u'Build' u'Broken', u'Building', u'Closed',
                 u'Done', u'Info Needed', u'In Progress', u'Open',
                 u'Pending', u'Pull Request', u'Reopened', u'Resolved',
@@ -633,10 +634,11 @@ class BranchQuery(Query):
         repos = Repo.get_repos(self.config.github_org,
                                self.config.thread_limit)
 
-        branches = Branch.get_org_branches(repos,
-                                           self.config.github_org,
-                                           thread_limit=self.config.thread_limit
-                                           )
+        branches = Branch.get_org_branches(
+            repos,
+            self.config.github_org,
+            thread_limit=self.config.thread_limit
+            )
 
         query_branches = self.filter(branches)
         details = Branch.get_details(query_branches,
@@ -652,11 +654,12 @@ class BranchQuery(Query):
             if isinstance(f, IssueFilter) and not self.issues:
                 keys = Issue.generate_issue_keys(branches, f.transform)
                 json_issues = \
-                    Issue.get_json_issues(keys,
-                                          f.jira_team_name,
-                                          thread_limit=self.config.thread_limit)
-                self.issues = [Issue.from_json(j_issue) for j_issue in json_issues]
+                    Issue.get_json_issues(
+                        keys,
+                        f.jira_team_name,
+                        thread_limit=self.config.thread_limit)
+                self.issues = [Issue.from_json(j_issue)
+                               for j_issue in json_issues]
                 Branch.update_branches_with_issues(branches, self.issues)
             branches = f.filter(branches)
         return branches
-
