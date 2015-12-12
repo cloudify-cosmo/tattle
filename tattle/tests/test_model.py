@@ -131,9 +131,9 @@ class OrganizationTest(unittest.TestCase):
         self.assertEqual(str(Organization('org_name')), 'org_name')
         self.assertNotEqual(str(Organization('org_name')), 'another_org_name')
 
-    @mock.patch('tattle.model.get_json')
     @mock.patch('os.environ')
-    def test_get_num_of_repos(self, mock_environ, mock_get_json):
+    @mock.patch('tattle.model.get_json')
+    def test_get_num_of_repos(self, mock_get_json, *args):
 
         org = Organization('org_name')
 
@@ -141,6 +141,26 @@ class OrganizationTest(unittest.TestCase):
                                       model.TOTAL_PRIVATE_REPOS: 3}
 
         self.assertEqual(Organization.get_num_of_repos(org), 5)
+
+    @mock.patch('os.environ')
+    @mock.patch('tattle.model.get_json')
+    def test_get_num_of_repos_no_public_repos(self, mock_get_json, *args):
+
+        org = Organization('org_name')
+
+        mock_get_json.return_value = {model.TOTAL_PRIVATE_REPOS: 3}
+
+        self.assertEqual(Organization.get_num_of_repos(org), 3)
+
+    @mock.patch('os.environ')
+    @mock.patch('tattle.model.get_json')
+    def test_get_num_of_repos_no_public_repos(self, mock_get_json, *args):
+
+        org = Organization('org_name')
+
+        mock_get_json.return_value = {model.PUBLIC_REPOS: 2}
+
+        self.assertEqual(Organization.get_num_of_repos(org), 2)
 
 
 class RepoTest(unittest.TestCase):
@@ -207,7 +227,6 @@ class BranchTestCase(unittest.TestCase):
         self.assertEqual(model.Branch.from_json(json_branch), expected_branch)
 
     def test_extract_repo_data(self):
-        # TODO how to handle long strings like that?
         branch_url = ('https://api.github.com/repos/cloudify-cosmo/'
                       'getcloudify.org/commits/'
                       'd87100f060e2f69f2f3702a993a2a4176b1c0493')

@@ -173,7 +173,8 @@ class Organization(GitHubObject):
 
         json_org = get_json(url, auth=QueryConfig.github_credentials())
 
-        return json_org[PUBLIC_REPOS] + json_org[TOTAL_PRIVATE_REPOS]
+        return (json_org.get(PUBLIC_REPOS, 0) +
+                json_org.get(TOTAL_PRIVATE_REPOS, 0))
 
 
 class Repo(GitHubObject):
@@ -238,7 +239,6 @@ class Branch(GitHubObject):
         self.repo = repo
         self.jira_issue = jira_issue
         self.committer_email = committer_email
-        # TODO maybe add date
 
     def __str__(self):
         return self.name
