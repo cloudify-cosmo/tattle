@@ -76,7 +76,7 @@ filters:
         replace_to:         CFY-
 ...
 ```
-As you can see, the first part of this file is somewhat reminicent of the config file of our first example. let's see what was added at the `query_config` section, and elaborate a little more on it's options.
+As you can see, the first part of this file is somewhat reminicent of the config file of our first example. Let's see what was added at the `query_config` section, and elaborate a little more on it's options.
 
 `thread_limit` - sets the maximum number of threads used by tattle.
 - unless this field is explicitly specified, tattle will use all available resources in order the perform as fast as it can. Before limiting the number of threads that tattle uses, keep in mind that interacting with external APIs over the web can take some time, especially when dealing with large GitHub project.
@@ -94,12 +94,12 @@ The `filter` part of config.yaml can consist of an unlimited number of filters. 
 `type` - the type of the filter.
 * currently, only `name_filter` and `issue_filter` types are available.
 
-`precedence` - The relative order of the filter. filters will be applied by their precedence, in ascending order.
+`precedence` - The relative order of the filter. Filters will be applied by their precedence, in ascending order.
 * Tip: assign lower precedence to 'heavier' filters. As a rule of thumb, assign name filters to a higher precedence than issue filters.
 
 name filters contain one additional field:
 
-`regular_expressions` - a list of python styled regular expressions ('regexes'). if the list contains more than one item, the output will be a union of all the regexes. i.e, if the list is `[feature, release]`, the branches whose name includes 'feature' or 'build' (or both) won't be filtered by that name filter.
+`regular_expressions` - a list of python styled regular expressions ('regexes'). If the list contains more than one item, the output will be a union of all the regexes. i.e, if the list is `[feature, release]`, the branches whose name includes 'feature' or 'build' (or both) won't be filtered by that name filter.
 * if you never heard of regular expressions, don't worry about it. Filtering in the manner of the above example doesn't require even knowing what regexes are. Just think of the `regular_expressions` field as a list of words that you want in a branch name.
 
 Issue filters are a bit more complex, but I'm sure that if you got until here you'll be just fine. Let's start will the simple stuff:
@@ -118,14 +118,14 @@ Sometimes, providing only a base is enough. This is the case when transforming a
 
 I will explain all three of them together, with the aid of an example based on real use case that we encountered.
 Assume that you have two branches, `CFY-1001-feature1` and `CFY1002-feature2`. If we provide only the base `CFY-*\d+`, then `CFY-1001-feature1` branch will be transformed to `CFY-1001` issue, and `CFY1002-feature2` will be transformed to `CFY1002`.
-but `CFY1002` is not a valid issue name - it is missing the `-`!
+But `CFY1002` is not a valid issue name - it is missing the `-`!
 That's where those three fields come into play:
 ```
 if_doesnt_contain:  '-'
 replace_from:       CFY
 replace_to:         CFY-
 ```
-They are basiclly saying "if the base doesn't contain the string `-`, then replace the string `CFY` with the string `-CFY`". So, in our example, first `base` will turn `CFY1002-feature2` into `CFY1002`, and the three other fields will complete the transform by turning `CFY1002` into `CFY-1002`. That's it. Not so complex when you come to think of it.
+They are basiclly saying "if the base doesn't contain the string `-`, then replace the string `CFY` with the string `CFY-`". So, in our example, first `base` will turn `CFY1002-feature2` into `CFY1002`, and the three other fields will complete the transform by turning `CFY1002` into `CFY-1002`. That's it. Not so complex when you come to think of it.
 
 
 ## The Output
@@ -135,7 +135,7 @@ The files contains a list of tattle-styled GitHub branches, each of them include
 
 `name` - the branch's name.
 
-`repo` - the branch's repo name. the repo field itself also contains a field of the repo's GitHub organization (or owner).
+`repo` - the branch's repo name. The repo field itself also contains a field of the repo's GitHub organization (or owner).
 
 `committer_email` - The email of the last conributer to the branch.
 
