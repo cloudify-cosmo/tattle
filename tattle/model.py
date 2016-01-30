@@ -127,7 +127,7 @@ def generate_github_api_url(request_type,
 class GitHubObject(object):
     """ Parent class for all classes representing GitHub objects.
 
-    Contains methods that are common to all the GitHub object,
+    Contains methods shared by all the GitHub objects,
     such as rich comparison methods.
     """
     def __init__(self, name):
@@ -156,12 +156,12 @@ class Organization(GitHubObject):
 
     @staticmethod
     def get_num_of_repos(org):
-        """ Returns the number of repos that the GitHub organization `org`.
+        """ Returns the number of repos of the `org` GitHub organization.
 
         The number of repos includes the number of the private repos.
         This method interacts with the GitHub API in order to retrieve
         information about the `org` organization.
-        The numbers of the public and private repo is extracted form this
+        The numbers of the public and private repos are extracted from this
         information, and added together as the method's return value
 
         :param org: GitHub organization
