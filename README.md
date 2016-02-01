@@ -48,9 +48,9 @@ We just need to feed that config file to tattle:
 tattle --config-path=/path/to/config/file
 ```
 
-### Lets Go Deeper! - The config.yaml File
+### Let's Go Deeper! - The config.yaml File
 
-Tattle's fuctionality relies on a config.yaml file.
+Tattle's functionality relies on a config.yaml file.
 Before getting into specifics, let's have a quick look at a sample config file:
 ```
 ---
