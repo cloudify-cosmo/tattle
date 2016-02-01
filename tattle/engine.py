@@ -70,8 +70,8 @@ def print_performance(start, end):
 def main():
 
     start = time.time()
-    enforce_github_env_variables()
     args = parse_arguments()
+    enforce_github_env_variables()
 
     try:
         with open(args.config_path) as config_file:
