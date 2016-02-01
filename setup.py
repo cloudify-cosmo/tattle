@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='tattle',
-    version='0.1.2',
+    version='0.1.6',
     packages=[
         'tattle',
     ],
@@ -15,7 +15,7 @@ setup(
         ]
     },
     install_requires=[
-        'requests>=2.5.4.1',
+        'requests>=2.7.0',
         'pyyaml>=3.10'
     ],
 )
