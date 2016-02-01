@@ -76,6 +76,7 @@ filters:
         replace_to:         CFY-
 ...
 ```
+#### The Query Config Section
 As you can see, the first part of this file is somewhat reminicent of the config file of our first example. Let's see what was added at the `query_config` section, and elaborate a little more on it's options.
 
 `thread_limit` - sets the maximum number of threads used by tattle.
@@ -88,6 +89,8 @@ As you can see, the first part of this file is somewhat reminicent of the config
 
 `output_path` - the path of tattle's product, the report.json file
 * if an output path is not specified, the report file will be written in the system's tmp directory, under `tattle/report.json`.
+
+#### The Filters Section
 
 The `filter` part of config.yaml can consist of an unlimited number of filters. Regardless of the filter's type, every filter has two mandatory fields:
 
