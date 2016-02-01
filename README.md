@@ -92,7 +92,7 @@ As you can see, the first part of this file is somewhat reminicent of the config
 
 #### The Filters Section
 
-The `filter` part of config.yaml can consist of an unlimited number of filters. Regardless of the filter's type, every filter has two mandatory fields:
+The `filters` part of config.yaml can consist of an unlimited number of filters. Regardless of the filter's type, every filter has two mandatory fields:
 
 `type` - the type of the filter.
 * currently, only `name_filter` and `issue_filter` types are available.
