@@ -16,6 +16,6 @@ setup(
     },
     install_requires=[
         'requests>=2.5.4.1',
-        'pyyaml>=3.11'
+        'pyyaml>=3.10'
     ],
 )
