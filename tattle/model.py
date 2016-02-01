@@ -28,7 +28,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 
 import requests
 
-PROJECT_NAME = 'Tattle'
+PROJECT_NAME = 'tattle'
 
 ITEMS_PER_PAGE = 100
 NO_THREAD_LIMIT = sys.maxint
@@ -44,30 +44,35 @@ TOTAL_PRIVATE_REPOS = 'total_private_repos'
 JIRA_ISSUE_API_URL_TEMPLATE = 'https://{0}.atlassian.net/rest/api/2/issue/'
 JIRA_ISSUE = 'jira_issue'
 
+DEFAULT_DATA_TYPE = 'branch'
+
 logger = logging.getLogger('model')
 logger.setLevel(logging.DEBUG)
 ish = logging.StreamHandler(sys.stdout)
 ish.setLevel(logging.INFO)
 info_formatter = \
-    logging.Formatter('%(asctime)s - %(message)s...', '%Y-%m-%d %H:%M:%S')
+    logging.Formatter('%(asctime)s - %(message)s', '%Y-%m-%d %H:%M:%S')
 ish.setFormatter(info_formatter)
 logger.addHandler(ish)
 
 
 def determine_num_of_threads(thread_limit, num_of_items, per_page=1):
-
     requested_threads = int(math.ceil(num_of_items / float(per_page)))
     return min(thread_limit, requested_threads)
 
 
 def create_thread_pool(number_of_threads):
+    if number_of_threads == 0:
+        return ThreadPool(1)
     return ThreadPool(number_of_threads)
 
 
 def get_json(url, auth=None):
-
     response = requests.get(url, auth=auth)
-    return json.loads(response.text)
+    status_code = response.status_code
+    if 300 > status_code >= 200 and response.text:
+        return json.loads(response.text)
+    return {}  # returns an empty dict for better handling down the line
 
 
 def pagination_format(page_number):
@@ -97,21 +102,21 @@ def generate_github_api_url(request_type,
     :return: Github API url
     :rtype: str
     """
-    urls = {'organization':    posixpath.join(ORGS,
-                                              org_name
-                                              ),
+    urls = {'organization': posixpath.join(ORGS,
+                                           org_name
+                                           ),
 
-            'repos':           posixpath.join(ORGS,
-                                              org_name,
-                                              REPOS
-                                              ) + pagination_format(
-                page_number),
+            'repos': posixpath.join(ORGS,
+                                    org_name,
+                                    REPOS
+                                    ) + pagination_format(
+                    page_number),
 
-            'list_branches':   posixpath.join(REPOS,
-                                              org_name,
-                                              repo_name,
-                                              BRANCHES
-                                              ),
+            'list_branches': posixpath.join(REPOS,
+                                            org_name,
+                                            repo_name,
+                                            BRANCHES
+                                            ),
 
             'detailed_branch': posixpath.join(REPOS,
                                               org_name,
@@ -130,6 +135,7 @@ class GitHubObject(object):
     Contains methods shared by all the GitHub objects,
     such as rich comparison methods.
     """
+
     def __init__(self, name):
         self.name = name
 
@@ -148,6 +154,7 @@ class GitHubObject(object):
 class Organization(GitHubObject):
     """ Represents a GitHub organization
     """
+
     def __init__(self, name):
         super(Organization, self).__init__(name)
 
@@ -178,7 +185,6 @@ class Organization(GitHubObject):
 
 
 class Repo(GitHubObject):
-
     def __init__(self, name, org=None):
         super(Repo, self).__init__(name)
         self.organization = org
@@ -198,7 +204,8 @@ class Repo(GitHubObject):
 
     @classmethod
     def get_repos(cls, org, thread_limit=NO_THREAD_LIMIT):
-        logger.info('retrieving github repositories for the {0} organization'
+        logger.info('retrieving github repositories for the {0} '
+                    'organization...'
                     .format(org))
 
         num_of_repos = Organization.get_num_of_repos(org)
@@ -229,7 +236,6 @@ class Repo(GitHubObject):
 
 
 class Branch(GitHubObject):
-
     def __init__(self,
                  name,
                  repo,
@@ -248,7 +254,7 @@ class Branch(GitHubObject):
 
         name = json_branch['name']
         (repo_name, organization) = cls.extract_repo_data(
-            json_branch['commit']['url'])
+                json_branch['commit']['url'])
         repo = Repo(repo_name, org=organization)
 
         return cls(name, repo)
@@ -256,7 +262,7 @@ class Branch(GitHubObject):
     @staticmethod
     def extract_repo_data(branch_url):
         url_regex = re.compile(
-            r'https://api.github.com/repos/(.*)/(.*)/commits/(.*)')
+                r'https://api.github.com/repos/(.*)/(.*)/commits/(.*)')
         groups = url_regex.findall(branch_url)
         name = groups[0][1]
         organization = Organization(groups[0][0])
@@ -265,7 +271,7 @@ class Branch(GitHubObject):
     @classmethod
     def get_org_branches(cls, repos, org, thread_limit=NO_THREAD_LIMIT):
         logger.info('retrieving basic github branch info '
-                    'for the {0} organization'
+                    'for the {0} organization...'
                     .format(org))
         num_of_threads = determine_num_of_threads(thread_limit, len(repos))
         pool = create_thread_pool(num_of_threads)
@@ -298,7 +304,7 @@ class Branch(GitHubObject):
     def get_details(cls, branches, thread_limit):
         if branches:
             logger.info('retrieving detailed github branch info '
-                        'for the {0} organization'
+                        'for the {0} organization...'
                         .format(branches[0].repo.organization.name))
 
         num_of_threads = determine_num_of_threads(thread_limit, len(branches))
@@ -323,7 +329,6 @@ class Branch(GitHubObject):
 
 
 class Issue(object):
-
     STATUSES = [u'Assigned', u'Build' u'Broken', u'Building', u'Closed',
                 u'Done', u'Info Needed', u'In Progress', u'Open',
                 u'Pending', u'Pull Request', u'Reopened', u'Resolved',
@@ -360,8 +365,8 @@ class Issue(object):
         pool = create_thread_pool(number_of_threads)
 
         return pool.map(
-            partial(cls.get_json_issue, jira_team_name=jira_team_name),
-            keys
+                partial(cls.get_json_issue, jira_team_name=jira_team_name),
+                keys
         )
 
     @staticmethod
@@ -384,12 +389,11 @@ class Issue(object):
             key = json_issue['key']
             status = json_issue['fields']['status']['name']
         except KeyError:
-            raise KeyError('This json does not represent a valid JIRA issue')
+            return None
         return cls(key, status)
 
 
 class Filter(object):
-
     PRECEDENCE = 'precedence'
 
     def __init__(self, precedence):
@@ -408,7 +412,6 @@ class Filter(object):
 
     @staticmethod
     def get_filter_class(filter_class):
-
         filters_dict = {'name': NameFilter, 'issue': IssueFilter}
         return filters_dict[filter_class]
 
@@ -417,21 +420,51 @@ class Filter(object):
         filter_class = cls.get_filter_class(yaml_filter['type'])
         return filter_class.from_yaml(yaml_filter)
 
+    @classmethod
+    def from_args(cls, arg_filter):
+        """Parse filter configuration and instantiate the relevant Filter
+
+        object.
+        :param arg_filter: A filter represented in a dict.
+        :return: The corresponding Filter object.
+        """
+        filter_class = cls.get_filter_class(arg_filter['type'])
+        return filter_class.from_args(arg_filter)
+
 
 class NameFilter(Filter):
-
     REGEXES = 'regular_expressions'
+
+    @staticmethod
+    def convert_arguments_to_strings(regex_list):
+        validated_list = []
+        for regex in regex_list:
+            validated_list.append(str(regex))
+        return validated_list
 
     def __init__(self, precedence, regexes):
         super(NameFilter, self).__init__(precedence)
-        self.regexes = regexes
+        if regexes:
+            self.regexes = self.convert_arguments_to_strings(regexes)
+        else:
+            self.regexes = []
 
     @classmethod
     def from_yaml(cls, yaml_nf):
 
         precedence = yaml_nf.get(cls.PRECEDENCE, sys.maxint)
-        regexes = yaml_nf.get(cls.REGEXES, list())
+        regexes = yaml_nf.get(cls.REGEXES, [])
         return cls(precedence, regexes)
+
+    @classmethod
+    def from_args(cls, args_nf):
+        """Instantiate class with CLI arguments
+
+        :param args_nf: CLI arguments
+        :return: NameFilter object
+        """
+        regexes = args_nf.get(cls.REGEXES, None)
+        return cls(sys.maxint, regexes)
 
     def filter(self, items):
         return filter(self.legal, items)
@@ -444,10 +477,10 @@ class NameFilter(Filter):
 
 
 class IssueFilter(Filter):
-
     JIRA_TEAM_NAME = 'jira_team_name'
     JIRA_STATUSES = 'jira_statuses'
     TRANSFORM = 'transform'
+    DEFAULT_JIRA_TEAM = 'cloudifysource'
 
     def __init__(self,
                  precedence,
@@ -458,6 +491,20 @@ class IssueFilter(Filter):
         self.jira_team_name = jira_team_name
         self.jira_statuses = jira_statuses
         self.transform = transform
+
+    @classmethod
+    def from_args(cls, args_if):
+        """Instantiate class with CLI arguments
+
+        :param args_if: CLI arguments
+        :return: IssueFilter object
+        """
+        jira_team_name = args_if.get(cls.JIRA_TEAM_NAME, cls.DEFAULT_JIRA_TEAM)
+        jira_statuses = args_if.get(cls.JIRA_STATUSES, Issue.STATUSES)
+
+        transform = Transform.from_args()
+
+        return cls(sys.maxint, jira_team_name, jira_statuses, transform)
 
     @classmethod
     def from_yaml(cls, yaml_if):
@@ -480,7 +527,6 @@ class IssueFilter(Filter):
 
 
 class Transform(object):
-
     BASE = 'base'
     IF_DOESNT_CONTAIN = 'if_doesnt_contain'
     REPLACE_FROM = 'replace_from'
@@ -501,7 +547,9 @@ class Transform(object):
     def from_yaml(cls, yaml_tf):
 
         if yaml_tf is None:
-            return None
+            # If no transform configuration is found in the yaml file,
+            # return an 'empty' Transform object.
+            return cls(None, None, None, None)
 
         base = yaml_tf.get(cls.BASE)
         if_doesnt_contain = yaml_tf.get(cls.IF_DOESNT_CONTAIN, '')
@@ -510,9 +558,19 @@ class Transform(object):
 
         return cls(base, if_doesnt_contain, replace_from, replace_to)
 
+    @classmethod
+    def from_args(cls):
+        """Instantiate class when using the CLI arguments.
+
+        This instantiates an 'empty' Transform, since there are currently no
+        options to make such transform using CLI arguments.
+        :return: A default Transform object
+        """
+        return cls('CFY-*\d+', '-', 'CFY', 'CFY-')
+
     def transform(self, src):
 
-        base = re.search(self.base, src)
+        base = re.search(self.base, src) if self.base else None
         if base is not None:
             group = base.group()
             if self.if_doesnt_contain == '':
@@ -523,14 +581,14 @@ class Transform(object):
             else:
                 return group
         else:
-            return None
+            return src
 
 
 class QueryConfig(object):
-
     DATA_TYPE = 'data_type'
     THREAD_LIMIT = 'thread_limit'
     GITHUB_ORG = 'github_org'
+    DEFAULT_ORGANIZATION = 'cloudify-cosmo'
     OUTPUT_PATH = 'output_path'
     DEFAULT_OUTPUT_FILE_NAME = 'report.json'
     DEFAULT_OUTPUT_RELATIVE_PATH = os.path.join(PROJECT_NAME,
@@ -540,8 +598,11 @@ class QueryConfig(object):
 
     @staticmethod
     def github_credentials():
-        return (os.environ['GITHUB_USER'],
-                os.environ['GITHUB_PASS'])
+        try:
+            return (os.environ['GITHUB_USER'],
+                    os.environ['GITHUB_PASS'])
+        except KeyError:
+            return None
 
     def __init__(self,
                  data_type,
@@ -564,7 +625,7 @@ class QueryConfig(object):
 
         data_type = yaml_qc.get(cls.DATA_TYPE)
         thread_limit = yaml_qc.get(cls.THREAD_LIMIT, NO_THREAD_LIMIT)
-        github_org = yaml_qc.get(cls.GITHUB_ORG)
+        github_org = yaml_qc.get(cls.GITHUB_ORG, cls.DEFAULT_ORGANIZATION)
         output_path = yaml_qc.get(cls.OUTPUT_PATH, cls.DEFAULT_OUTPUT_PATH)
 
         return cls(data_type,
@@ -572,9 +633,35 @@ class QueryConfig(object):
                    Organization(github_org),
                    output_path)
 
+    @classmethod
+    def from_args(cls, args):
+        """Creates a QueryConfig object from CLI arguments.
+
+        :param args: CLI arguments
+        :return: A QueryConfig object
+        """
+        if hasattr(args, cls.THREAD_LIMIT) and args.thread_limit:
+            thread_limit = args.thread_limit
+        else:
+            thread_limit = NO_THREAD_LIMIT
+
+        if hasattr(args, cls.OUTPUT_PATH) and args.output_path:
+            output_path = args.output_path
+        else:
+            output_path = cls.DEFAULT_OUTPUT_PATH
+
+        if hasattr(args, cls.GITHUB_ORG) and args.org:
+            github_org = args.org
+        else:
+            github_org = cls.DEFAULT_ORGANIZATION
+
+        return cls(DEFAULT_DATA_TYPE,
+                   thread_limit,
+                   Organization(github_org),
+                   output_path)
+
 
 class Query(object):
-
     def __init__(self, config):
 
         self.config = config
@@ -624,7 +711,6 @@ class Query(object):
 
 
 class BranchQuery(Query):
-
     def __init__(self, config):
         super(BranchQuery, self).__init__(config)
         self.issues = None
@@ -635,10 +721,10 @@ class BranchQuery(Query):
                                self.config.thread_limit)
 
         branches = Branch.get_org_branches(
-            repos,
-            self.config.github_org,
-            thread_limit=self.config.thread_limit
-            )
+                repos,
+                self.config.github_org,
+                thread_limit=self.config.thread_limit
+        )
 
         query_branches = self.filter(branches)
         details = Branch.get_details(query_branches,
@@ -655,9 +741,9 @@ class BranchQuery(Query):
                 keys = Issue.generate_issue_keys(branches, f.transform)
                 json_issues = \
                     Issue.get_json_issues(
-                        keys,
-                        f.jira_team_name,
-                        thread_limit=self.config.thread_limit)
+                            keys,
+                            f.jira_team_name,
+                            thread_limit=self.config.thread_limit)
                 self.issues = [Issue.from_json(j_issue)
                                for j_issue in json_issues]
                 Branch.update_branches_with_issues(branches, self.issues)
