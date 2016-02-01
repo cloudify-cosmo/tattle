@@ -49,8 +49,8 @@ def parse_arguments():
 
     parser = argparse.ArgumentParser(description=ARGUMENT_PARSER_DESCRIPTION)
     parser.add_argument(CONFIG_PATH_COMMAND_NAME, '-c',
-                        metavar='<PATH_TO_CONFIG>',
-                        type=str,
+                        metavar='<CONFIG_FILE>',
+
                         help=CONFIG_PATH_HELP_TEXT,
                         required=True)
 
