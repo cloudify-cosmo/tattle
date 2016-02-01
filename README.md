@@ -7,7 +7,6 @@ tattle is a tool that enables you to dig a little deeper in your GitHub projects
 ```
 pip install tattle
 ```
-(Since tattle is currently only at testpypi, the installation link has to look so appalling)
 ## Setup - Setting Environment Variables
 
 ### Github API request limitations
