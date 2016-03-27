@@ -24,33 +24,29 @@ from tattle.engine import parse_arguments
 
 
 class GitHubEnvVariablesTestCase(unittest.TestCase):
-
-    def test_no_env_variables(self):
-
-        self.assertRaises(KeyError,
-                          enforce_github_env_variables)
+    @mock.patch('tattle.engine.query_yes_no')
+    def test_no_env_variables(self, mock_query_yes_no):
+        mock_query_yes_no.return_value = False
+        enforce_github_env_variables()
+        self.assertTrue(mock_query_yes_no.called)
 
     @mock.patch.dict('os.environ', {engine.GITHUB_USER: 'u'})
-    def test_one_github_env_variable(self):
-
-        self.assertRaises(KeyError,
-                          enforce_github_env_variables)
+    @mock.patch('tattle.engine.query_yes_no')
+    def test_one_github_env_variable(self, mock_query_yes_no):
+        mock_query_yes_no.return_value = False
+        enforce_github_env_variables()
+        self.assertTrue(mock_query_yes_no.called)
 
     @mock.patch.dict('os.environ', {engine.GITHUB_USER: 'u',
                                     engine.GITHUB_PASS: 'p'})
-    def test_two_github_env_variables(self):
-
-        try:
-            enforce_github_env_variables()
-        except KeyError:
-            self.fail('Environment variables {0}, {1} should exist, '
-                      'but they don\'t.'.format(engine.GITHUB_USER,
-                                                engine.GITHUB_PASS)
-                      )
+    @mock.patch('tattle.engine.query_yes_no')
+    def test_two_github_env_variables(self, mock_query_yes_no):
+        mock_query_yes_no.return_value = False
+        enforce_github_env_variables()
+        mock_query_yes_no.assert_not_called()
 
 
 class ParseArgumentsTestCase(unittest.TestCase):
-
     @mock.patch.object(sys, 'argv',
                        new=['name', '--config-path=/dir/config.yaml'])
     def test_getting_the_file_path(self):

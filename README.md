@@ -24,12 +24,28 @@ export GITHUB_PASS="mypass"
 ```
 ## Usage
 
-### Quick Example: Filtering Branches by Name
+### Quick Example Using the CLI: Filtering Branches by Name
 
 Assume that you are part of a team that works on a very large project.
-This project is a product of years of development, and it contains dozens of repos and hundreds of branches. In these kinds of projects, even if every team member does everything in her power to follow naming convention and the like, it is almost inevitable this mishaps will occur. And that's where tattle comes at hand.
+This project is a product of years of development, and it contains dozens of repos and hundreds of branches. In these kinds of projects, even if every team member does everything in her power to follow naming conventions and the like, it is almost inevitable this mishaps will occur. And that's where tattle comes at hand.
 
-consider this simple config.yaml file:
+You can you use tattle either with a CLI, or with a YAML configurations file. 
+The CLI may not provide all the features tattle offers, but, for simple queries, it makes the whole usage experience more compelling.
+
+Now, let's say we want to get all the branches of the GitHub organization named 'cloudify-cosmo' whose name contains the string 'CFY'.
+In this case, you'll simply run the following command:
+```
+tattle --branch-names CFY --org cloudify-cosmo
+```
+This will produce a 'repot.json' file containing all the mentioned above branches.
+
+You'll notice that the argument '--branch-names' implies that multiple branch names can be entered. Well, that's true. You can enter as many as you'd like, separated by spaces, and the .json report file will contain a union of all the names you've entered.
+
+Tattle supports additional CLI arguments; '--config-path', '--jira-team', '--jira-statuses', '--output-path' and '--thread-limit'; all of which you can find an explenation for down below in the The Query Config Section.
+
+### Another Quick Example, This Time Using A YAML Config File: Filtering Branches by Name
+
+Consider this simple config.yaml file:
 ```
 query_config:
     data_type:        branch
@@ -79,7 +95,8 @@ filters:
 As you can see, the first part of this file is somewhat reminicent of the config file of our first example. Let's see what was added at the `query_config` section, and elaborate a little more on it's options.
 
 `thread_limit` - sets the maximum number of threads used by tattle.
-- unless this field is explicitly specified, tattle will use all available resources in order the perform as fast as it can. Before limiting the number of threads that tattle uses, keep in mind that interacting with external APIs over the web can take some time, especially when dealing with large GitHub project.
+- unless this field is explicitly specified, tattle will use all available resources in order to perform as fast as it can. Before limiting the number
+of threads that tattle uses, keep in mind that interacting with external APIs over the web can take some time, especially when dealing with large GitHub project.
 
 `data_type` - the GitHub data type that is equired by the user.
 * currently, only the `branch` option is available. But there are plans to extand tattle so it will be also able to work on GitHub tags and repositories.

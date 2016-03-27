@@ -18,6 +18,8 @@ import unittest
 import mock
 import yaml
 
+from mock import PropertyMock
+
 from tattle import model
 
 from tattle.model import GitHubObject
@@ -34,8 +36,28 @@ from tattle.model import Query
 from tattle.model import BranchQuery
 
 
-class GitHubApiUrlTestCase(unittest.TestCase):
+class GetJsonMethodsTestCase(unittest.TestCase):
 
+    class StubResponse(object):
+        def __init__(self, status_code, text=''):
+            self.status_code = status_code
+            self.text = text
+
+    @mock.patch('requests.get')
+    def test_get_json_with_non_ok_status_code(self, mock_requests_get):
+        mock_requests_get.return_value = self.StubResponse(199)
+        self.assertEqual({}, model.get_json(''))
+        mock_requests_get.return_value = self.StubResponse(300)
+        self.assertEqual({}, model.get_json(''))
+
+    @mock.patch('requests.get')
+    def test_get_json_with_ok_status_code_with_invalid_json(self,
+                                                            mock_requests_get):
+        mock_requests_get.return_value = self.StubResponse(200, '{')
+        self.assertRaises(ValueError, model.get_json, 'dummy_url')
+
+
+class GitHubApiUrlTestCase(unittest.TestCase):
     def test_determine_number_of_threads_without_per_page(self):
         self.assertEqual(model.determine_num_of_threads(10, 10), 10)
         self.assertEqual(model.determine_num_of_threads(10, 9), 9)
@@ -69,72 +91,63 @@ class GitHubApiUrlTestCase(unittest.TestCase):
         self.assertEqual(pagination_string, model.pagination_format(1))
 
     def test_generate_github_api_url_with_organization(self):
-
         url = 'https://api.github.com/orgs/cloudify-cosmo'
         self.assertEqual(
-            model.generate_github_api_url('organization',
-                                          org_name='cloudify-cosmo'),
-            url)
+                model.generate_github_api_url('organization',
+                                              org_name='cloudify-cosmo'),
+                url)
 
     @mock.patch('tattle.model.pagination_format')
     def test_generate_github_api_url_with_repos(self,
                                                 mock_pagination_format):
-
         mock_pagination_format.return_value = '?page=1&per_page=100'
         url = 'https://api.github.com/orgs/cloudify-cosmo/repos' \
               '?page=1&per_page=100'
 
         self.assertEqual(
-            model.generate_github_api_url('repos',
-                                          org_name='cloudify-cosmo'
-                                          ),
-            url)
+                model.generate_github_api_url('repos',
+                                              org_name='cloudify-cosmo'
+                                              ),
+                url)
 
     def test_generate_github_api_url_with_list_branches(self):
-
         url = ('https://api.github.com/repos/cloudify-cosmo/'
                'cloudify-manager/branches')
         self.assertEqual(
-            model.generate_github_api_url('list_branches',
-                                          org_name='cloudify-cosmo',
-                                          repo_name='cloudify-manager'),
-            url)
+                model.generate_github_api_url('list_branches',
+                                              org_name='cloudify-cosmo',
+                                              repo_name='cloudify-manager'),
+                url)
 
     def test_generate_github_api_url_with_detailed_branch(self):
-
         url = ('https://api.github.com/repos/cloudify-cosmo'
                '/cloudify-manager/branches/master')
         self.assertEqual(
-            model.generate_github_api_url('detailed_branch',
-                                          org_name='cloudify-cosmo',
-                                          repo_name='cloudify-manager',
-                                          branch_name='master'),
-            url)
+                model.generate_github_api_url('detailed_branch',
+                                              org_name='cloudify-cosmo',
+                                              repo_name='cloudify-manager',
+                                              branch_name='master'),
+                url)
 
 
 class GitHubObjectTestCase(unittest.TestCase):
-
     def test_eq(self):
-
         self.assertEqual(GitHubObject('a'), GitHubObject('a'))
         self.assertNotEqual(GitHubObject('a'), GitHubObject('b'))
 
     def test_lt(self):
-
         self.assertLess(GitHubObject('a'), GitHubObject('b'))
         self.assertGreater(GitHubObject('b'), GitHubObject('a'))
 
 
 class OrganizationTest(unittest.TestCase):
-
     def test_str(self):
         self.assertEqual(str(Organization('org_name')), 'org_name')
         self.assertNotEqual(str(Organization('org_name')), 'another_org_name')
 
     @mock.patch('os.environ')
     @mock.patch('tattle.model.get_json')
-    def test_get_num_of_repos(self, mock_get_json, *args):
-
+    def test_get_num_of_repos(self, mock_get_json, *_):
         org = Organization('org_name')
 
         mock_get_json.return_value = {model.PUBLIC_REPOS: 2,
@@ -144,8 +157,7 @@ class OrganizationTest(unittest.TestCase):
 
     @mock.patch('os.environ')
     @mock.patch('tattle.model.get_json')
-    def test_get_num_of_repos_no_public_repos(self, mock_get_json, *args):
-
+    def test_get_num_of_repos_no_public_repos(self, mock_get_json, *_):
         org = Organization('org_name')
 
         mock_get_json.return_value = {model.TOTAL_PRIVATE_REPOS: 3}
@@ -154,7 +166,7 @@ class OrganizationTest(unittest.TestCase):
 
     @mock.patch('os.environ')
     @mock.patch('tattle.model.get_json')
-    def test_get_num_of_repos_no_public_repos(self, mock_get_json, *args):
+    def test_get_num_of_repos_no_private_repos(self, mock_get_json, *_):
 
         org = Organization('org_name')
 
@@ -164,7 +176,6 @@ class OrganizationTest(unittest.TestCase):
 
 
 class RepoTest(unittest.TestCase):
-
     def test_str(self):
         self.assertEqual(str(Repo('repo_name')), 'repo_name')
         self.assertNotEqual(str(Repo('repo_name')), 'another_repo_name')
@@ -187,7 +198,7 @@ class RepoTest(unittest.TestCase):
     @mock.patch('tattle.model.logging.Logger.info')
     @mock.patch('tattle.model.Organization.get_num_of_repos', return_value=1)
     @mock.patch('multiprocessing.pool.ThreadPool.map')
-    def test_get_repos(self, mock_map, *args):
+    def test_get_repos(self, mock_map, *_):
         mock_map.return_value = \
             [[{'name': 'cloudify-manager',
                'owner': {'login': 'cloudify-cosmo'}}],
@@ -202,14 +213,12 @@ class RepoTest(unittest.TestCase):
 
 
 class BranchTestCase(unittest.TestCase):
-
     def test_str(self):
         branch = Branch('master', Repo('cloudify-manager'))
         self.assertEqual(str(branch), 'master')
 
     @mock.patch('tattle.model.Branch.extract_repo_data')
     def test_from_json(self, mock_extract_repo_data):
-
         mock_extract_repo_data.return_value = ('getcloudify.org',
                                                Organization('cloudify-cosmo'))
 
@@ -237,7 +246,7 @@ class BranchTestCase(unittest.TestCase):
 
     @mock.patch('tattle.model.logging.Logger.info')
     @mock.patch('multiprocessing.pool.ThreadPool.map')
-    def test_get_org_branches(self, mock_map, *args):
+    def test_get_org_branches(self, mock_map, *_):
         self.maxDiff = None
         mock_map.return_value = [
             [{u'commit': {u'url': u'https://api.github.com/repos/'
@@ -282,7 +291,6 @@ class BranchTestCase(unittest.TestCase):
                          expected_result)
 
     def test_update_branches_with_issues(self):
-
         branches = [Branch(u'CFY-3223-allow-external-rabbitmq',
                            Repo(u'cloudify-manager',
                                 org=Organization(u'cloudify-cosmo'))),
@@ -306,7 +314,6 @@ class BranchTestCase(unittest.TestCase):
         self.assertEqual(branches, expected_branches)
 
     def test_update_branches_with_issues_empty_branches(self):
-
         branches = []
         issues = [Issue('CFY-3223', 'Resolved')]
 
@@ -316,7 +323,6 @@ class BranchTestCase(unittest.TestCase):
         self.assertEqual(branches, expected_branches)
 
     def test_update_branches_with_issues_empty_issues(self):
-
         branches = [Branch(u'CFY-3223-allow-external-rabbitmq',
                            Repo(u'cloudify-manager',
                                 org=Organization(u'cloudify-cosmo')))
@@ -332,7 +338,6 @@ class BranchTestCase(unittest.TestCase):
         self.assertEqual(branches, expected_branches)
 
     def test_update_details_with_correctly_formatted_details(self):
-
         branch = Branch(u'CFY-3223-allow-external-rabbitmq',
                         Repo(u'cloudify-manager',
                              org=Organization(u'cloudify-cosmo')))
@@ -350,7 +355,6 @@ class BranchTestCase(unittest.TestCase):
         self.assertEqual(branch, expected_branch)
 
     def test_update_details_with_incorrectly_formatted_details(self):
-
         branch = Branch(u'CFY-3223-allow-external-rabbitmq',
                         Repo(u'cloudify-manager',
                              org=Organization(u'cloudify-cosmo')))
@@ -365,9 +369,7 @@ class BranchTestCase(unittest.TestCase):
 
 
 class IssueTestCase(unittest.TestCase):
-
     def test_eq(self):
-
         issue1 = Issue(u'CFY-3223', u'Closed')
         issue2 = Issue(u'CFY-3502', u'Closed')
         issue3 = Issue(u'CFY-3223', u'Resolved')
@@ -379,17 +381,14 @@ class IssueTestCase(unittest.TestCase):
         self.assertEqual(issue1, issue4)
 
     def test_str(self):
-
         issue = Issue(u'CFY-3223', u'Closed')
         expected_string = 'key: CFY-3223, status: Closed'
         self.assertEqual(str(issue), expected_string)
 
     def test_get_json_issue(self):
-
         self.assertIsNone(Issue.get_json_issue(None, 'jira_team_name'))
 
     def test_from_json(self):
-
         json_issue = {
             'key': u'CFY-3223',
             'fields': {
@@ -403,11 +402,9 @@ class IssueTestCase(unittest.TestCase):
         self.assertEqual(Issue.from_json(json_issue), expected_issue)
 
     def test_from_json_no_json(self):
-
         self.assertIsNone(Issue.from_json(None))
 
     def test_from_json_missing_parts(self):
-
         json_issue_no_key = {
             'fields': {
                 'status': {
@@ -421,14 +418,18 @@ class IssueTestCase(unittest.TestCase):
             'fields': {}
         }
 
-        self.assertRaises(KeyError, Issue.from_json, json_issue_no_key)
-        self.assertRaises(KeyError, Issue.from_json, json_issue_no_status)
+        self.assertIsNone(Issue.from_json(json_issue_no_key))
+        self.assertIsNone(Issue.from_json(json_issue_no_status))
 
 
 class FilterTestCase(unittest.TestCase):
+    def test_from_args_with_filter_types(self):
+        filter_dict = {'type': 'name'}
+        self.assertIsInstance(Filter.from_args(filter_dict), NameFilter)
+        filter_dict['type'] = 'issue'
+        self.assertIsInstance(Filter.from_args(filter_dict), IssueFilter)
 
     def test_lt(self):
-
         filter1 = Filter(1)
         filter2 = Filter(2)
 
@@ -444,7 +445,6 @@ class FilterTestCase(unittest.TestCase):
     def test_from_yaml(self,
                        mock_name_filter_from_yaml,
                        mock_issue_filter_from_yaml):
-
         Filter.from_yaml({'type': 'name'})
         self.assertTrue(mock_name_filter_from_yaml.called)
         self.assertFalse(mock_issue_filter_from_yaml.called)
@@ -454,6 +454,10 @@ class FilterTestCase(unittest.TestCase):
 
 
 class NameFilterTestCase(unittest.TestCase):
+    def test_validate_regex_list(self):
+        self.assertEqual(['first', '2', '3.0'],
+                         NameFilter.
+                         convert_arguments_to_strings(['first', 2, 3.0]))
 
     def test_from_yaml(self):
         yaml_nf = yaml.load('precedence: 1\n'
@@ -469,10 +473,8 @@ class NameFilterTestCase(unittest.TestCase):
 
 
 class IssueFilterTestCase(unittest.TestCase):
-
     @mock.patch('tattle.model.Transform.from_yaml')
     def test_from_yaml(self, mock_transform_from_yaml):
-
         yaml_if = yaml.load('precedence: 1\n'
                             'jira_team_name: cloudifysource\n'
                             'jira_statuses:  [Closed, Resolved]\n'
@@ -493,7 +495,6 @@ class IssueFilterTestCase(unittest.TestCase):
         self.assertEqual(IssueFilter.from_yaml(yaml_if), expected_filter)
 
     def test_legal(self):
-
         issue_filter = IssueFilter(1,
                                    'cloudifysource',
                                    ['Closed', 'Resolved'],
@@ -509,7 +510,6 @@ class IssueFilterTestCase(unittest.TestCase):
 
 
 class TransformTestCase(unittest.TestCase):
-
     def test_from_yaml(self):
         yaml_transform = yaml.load('base:   CFY-*\d+\n'
                                    "if_doesnt_contain:  '-'\n"
@@ -527,13 +527,11 @@ class TransformTestCase(unittest.TestCase):
         self.assertEqual(transform.transform(src), 'CFY-3223')
 
     def test_transform_with_if_doesnt_contain(self):
-
         transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
         src = 'CFY3223-allow-external-rabbitmq'
         self.assertEqual(transform.transform(src), 'CFY-3223')
 
     def test_transform_from_and_to_are_the_same(self):
-
         transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY')
         src = 'CFY-3223-allow-external-rabbitmq'
         self.assertEqual(transform.transform(src), 'CFY-3223')
@@ -546,7 +544,7 @@ class TransformTestCase(unittest.TestCase):
     def test_transform_base_is_not_a_pattern(self):
         transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
         src = 'GIVEAWAY'
-        self.assertIsNone(transform.transform(src))
+        self.assertEqual(src, transform.transform(src))
 
     def test_transform_two_base_occurrences(self):
         transform = Transform('CFY-*\d+', '-', 'CFY', 'CFY-')
@@ -555,7 +553,6 @@ class TransformTestCase(unittest.TestCase):
 
 
 class QueryConfigTestCase(unittest.TestCase):
-
     @mock.patch('tattle.model.os')
     def test_github_credentials_accessing_os_environ(self, mock_os):
         mock_os.environ = {'GITHUB_USER': 'user', 'GITHUB_PASS': 'pass'}
@@ -564,12 +561,11 @@ class QueryConfigTestCase(unittest.TestCase):
                          expected_credentials)
 
     def test_from_yaml(self):
-
         yaml_qc = yaml.load(
-            'thread_limit:  120\n'
-            'data_type:    branch\n'
-            'github_org:   cloudify-cosmo\n'
-            'output_path:  /home/avia/tattle/output/report.json\n'
+                'thread_limit:  120\n'
+                'data_type:    branch\n'
+                'github_org:   cloudify-cosmo\n'
+                'output_path:  /home/avia/tattle/output/report.json\n'
         )
 
         expected_qc = QueryConfig('branch',
@@ -581,7 +577,6 @@ class QueryConfigTestCase(unittest.TestCase):
 
 
 class QueryTestCase(unittest.TestCase):
-
     def test_get_query_class(self):
         self.assertEqual(Query.get_query_class('branch'), BranchQuery)
 
@@ -606,7 +601,6 @@ class QueryTestCase(unittest.TestCase):
 
 
 class BranchQueryTestCase(unittest.TestCase):
-
     @mock.patch('tattle.model.NameFilter.filter')
     @mock.patch('tattle.model.IssueFilter.filter')
     @mock.patch('tattle.model.Branch.update_branches_with_issues')
@@ -616,7 +610,7 @@ class BranchQueryTestCase(unittest.TestCase):
                                       mock_generate_issue_keys,
                                       mock_get_json_issues,
                                       mock_update_branches_with_issues,
-                                      *args
+                                      *_
                                       ):
         bq = BranchQuery(QueryConfig(None, None, None, None))
         bq.filters = [IssueFilter(None, None, None, None)]
@@ -634,7 +628,7 @@ class BranchQueryTestCase(unittest.TestCase):
                                          mock_generate_issue_keys,
                                          mock_get_json_issues,
                                          mock_update_branches_with_issues,
-                                         *args
+                                         *_
                                          ):
         bq = BranchQuery(QueryConfig(None, None, None, None))
         bq.filters = [NameFilter(None, None)]
